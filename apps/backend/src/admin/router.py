@@ -186,6 +186,8 @@ async def reset_database(request: ResetRequest, admin: dict = Depends(get_curren
         ) or 0
         await db.execute_tx([
             ("DELETE FROM gestures", ()),
+            ("DELETE FROM session_metrics", ()),
+            ("DELETE FROM feedback", ()),
             ("DELETE FROM invite_tokens", ()),
             ("DELETE FROM reset_tokens", ()),
             ("DELETE FROM users WHERE id <> $1", (admin["user_id"],)),
@@ -241,6 +243,59 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
         }
         for r in rows
     ]
+
+
+# ── Dados de validação (métricas + feedback cruzados com demografia) ──────────
+
+@router.get("/research")
+async def get_research_data(_: dict = Depends(get_current_admin)):
+    """Métricas de sessão e feedback, já cruzados com a demografia do participante,
+    para as análises/gráficos das seções de resultados do TCC."""
+    metrics = await db.fetch("""
+        SELECT m.mode, m.gestures_recognized, m.avg_confidence, m.duration_seconds, m.created_at,
+               u.nivel_surdez, u.sabe_libras, u.sexo, u.faixa_etaria
+        FROM session_metrics m JOIN users u ON u.id = m.user_id
+        ORDER BY m.created_at DESC
+    """)
+    feedback = await db.fetch("""
+        SELECT f.recognized_well, f.easy_to_use, f.would_use_again, f.comment, f.created_at,
+               u.nivel_surdez, u.sabe_libras, u.sexo, u.faixa_etaria
+        FROM feedback f JOIN users u ON u.id = f.user_id
+        ORDER BY f.created_at DESC
+    """)
+
+    def _metric(r):
+        return {
+            "mode": r["mode"],
+            "gestures_recognized": r["gestures_recognized"],
+            "avg_confidence": round(r["avg_confidence"], 4),
+            "duration_seconds": r["duration_seconds"],
+            "created_at": r["created_at"].isoformat(),
+            "nivel_surdez": r["nivel_surdez"],
+            "sabe_libras": r["sabe_libras"],
+            "sexo": r["sexo"],
+            "faixa_etaria": r["faixa_etaria"],
+        }
+
+    def _fb(r):
+        return {
+            "recognized_well": r["recognized_well"],
+            "easy_to_use": r["easy_to_use"],
+            "would_use_again": r["would_use_again"],
+            "comment": r["comment"],
+            "created_at": r["created_at"].isoformat(),
+            "nivel_surdez": r["nivel_surdez"],
+            "sabe_libras": r["sabe_libras"],
+            "sexo": r["sexo"],
+            "faixa_etaria": r["faixa_etaria"],
+        }
+
+    return {
+        "total_sessions": len(metrics),
+        "total_feedback": len(feedback),
+        "metrics": [_metric(r) for r in metrics],
+        "feedback": [_fb(r) for r in feedback],
+    }
 
 
 # ── Analytics (dados da pesquisa) ─────────────────────────────────────────────

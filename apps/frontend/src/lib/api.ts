@@ -199,5 +199,37 @@ export const api = {
         '/api/admin/reset',
         { method: 'POST', body: JSON.stringify({ scope, confirm: 'ZERAR' }) }
       ),
+
+    getResearch: () =>
+      req<{ total_sessions: number; total_feedback: number; metrics: unknown[]; feedback: unknown[] }>(
+        '/api/admin/research'
+      ),
+  },
+
+  // ── Coleta de dados da pesquisa ──────────────────────────────────────────────
+  metrics: {
+    logSession: (data: {
+      mode: 'call' | 'translate'
+      gestures_recognized: number
+      avg_confidence: number
+      duration_seconds: number
+    }) =>
+      req<{ ok: boolean; id: string }>('/api/metrics/session', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  },
+
+  feedback: {
+    submit: (data: {
+      recognized_well: number | null
+      easy_to_use: number | null
+      would_use_again: number | null
+      comment?: string | null
+    }) =>
+      req<{ ok: boolean; id: string }>('/api/feedback', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 }

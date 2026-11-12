@@ -9,6 +9,7 @@ from . import database as db
 from .auth.router import router as auth_router
 from .gestures.router import router as gestures_router
 from .admin.router import router as admin_router
+from .collection.router import router as collection_router
 from .socket_events import sio
 
 
@@ -92,6 +93,34 @@ async def run_migrations():
         )
         """,
 
+        # Métricas de sessão (pesquisa) — uma linha por sessão de chamada/tradução
+        """
+        CREATE TABLE IF NOT EXISTS session_metrics (
+            id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id             UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            mode                TEXT        NOT NULL DEFAULT 'call',
+            gestures_recognized INT         NOT NULL DEFAULT 0,
+            avg_confidence      REAL        NOT NULL DEFAULT 0,
+            duration_seconds    INT         NOT NULL DEFAULT 0,
+            created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+
+        # Feedback dos participantes (validação com usuários)
+        """
+        CREATE TABLE IF NOT EXISTS feedback (
+            id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id          UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            recognized_well  INT,
+            easy_to_use      INT,
+            would_use_again  INT,
+            comment          TEXT,
+            created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_session_metrics_user ON session_metrics(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id)",
+
         # Trigger: atualiza updated_at automaticamente
         """
         CREATE OR REPLACE FUNCTION set_updated_at()
@@ -161,6 +190,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(gestures_router, prefix="/api/gestures", tags=["gestures"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+app.include_router(collection_router, prefix="/api", tags=["collection"])
 
 
 @app.get("/health", tags=["health"])
