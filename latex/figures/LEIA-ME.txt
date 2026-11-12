@@ -1,0 +1,2 @@
+Coloque aqui os prints da aplicacao e os graficos gerados.
+As figuras pendentes estao marcadas no texto com um placeholder.

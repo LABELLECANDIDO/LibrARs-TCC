@@ -1,0 +1,27 @@
+# ==========================================================
+# Artefatos gerados pela compilação LaTeX — não versionar.
+#
+# Permanecem versionados (essenciais + entregável):
+#   main.tex, sections/, timbre/, figures/, tables/,
+#   README.md, .gitignore e o PDF final (main.pdf).
+# ==========================================================
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+*.xdv

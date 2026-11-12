@@ -1,0 +1,36 @@
+%====================== CONSIDERAÇÕES FINAIS ======================
+\section{Considerações finais}
+
+Este trabalho apresentou o desenvolvimento do LibrasAI, um sistema de
+reconhecimento automático de gestos dinâmicos de Libras em tempo real, construído
+a partir de um \textit{pipeline} que integra captura de vídeo, extração de
+\textit{landmarks} via MediaPipe, normalização espacial e classificação por meio
+de uma rede híbrida CNN + LSTM.
+
+Os objetivos específicos definidos para este estágio do trabalho foram
+majoritariamente alcançados: o \textit{pipeline} de captura e detecção de
+\textit{landmarks} está implementado e em funcionamento; o modelo CNN + LSTM foi
+treinado e superou a meta de acurácia estabelecida (90\%), atingindo 97,4\% sobre
+o \textit{dataset} inicial; o sistema de coleta interativa de dados está
+operacional e já produziu um protocolo replicável com 10 participantes; e a
+formação automática de frases, com os três modos de operação planejados, foi
+implementada e testada pela equipe de desenvolvimento.
+
+Ao mesmo tempo, este trabalho reconhece explicitamente que os resultados obtidos
+são preliminares e devem ser lidos à luz das limitações discutidas na
+Seção~\ref{subsec:limitacoes} — em especial o tamanho ainda reduzido do
+\textit{dataset} e a necessidade de validação com usuários externos ao
+treinamento, endereçada pelo protocolo descrito na Seção~\ref{subsec:validacao}.
+Essas limitações não invalidam a contribuição do trabalho, mas delimitam com
+precisão o que ainda precisa ser feito antes que o sistema possa ser considerado
+robusto o suficiente para uso real pela comunidade surda.
+
+Do ponto de vista de contribuição acadêmica, o LibrasAI se soma a um conjunto
+ainda pequeno de sistemas de reconhecimento de Libras — em contraste com a
+abundância de trabalhos voltados à ASL e a outras línguas de sinais
+internacionais —, reforçando a relevância de pesquisa nacional dedicada
+especificamente à língua de sinais brasileira. A intenção declarada de dar
+continuidade a este trabalho em nível de mestrado, com submissão dos resultados a
+um artigo científico, indica que o presente TCC deve ser compreendido como uma
+etapa inicial de um programa de pesquisa mais amplo, e não como um produto
+finalizado.

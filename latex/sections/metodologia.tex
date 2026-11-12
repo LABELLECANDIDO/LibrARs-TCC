@@ -1,0 +1,240 @@
+%========================== METODOLOGIA ==========================
+\section{Metodologia}
+
+\subsection{Classificação da pesquisa}
+
+Este trabalho classifica-se como pesquisa aplicada, orientada à investigação de
+um problema real seguida do desenvolvimento de uma aplicação prática (pesquisa e
+desenvolvimento), com o objetivo de produzir um sistema funcional de
+reconhecimento de Libras a partir da investigação de técnicas de visão
+computacional e aprendizado profundo já consolidadas na literatura, adaptadas ao
+contexto específico da língua de sinais brasileira.
+
+\subsection{Protocolo de coleta de dados}
+\label{subsec:coleta}
+
+O \textit{dataset} utilizado neste trabalho foi construído a partir de gravações
+próprias, seguindo o protocolo descrito a seguir:
+
+\begin{itemize}[leftmargin=2cm]
+  \item \textbf{Participantes:} 10 pessoas, com no mínimo 10 repetições
+  executadas por gesto;
+  \item \textbf{Ambiente:} fundo neutro e iluminação adequada, minimizando ruído
+  visual na etapa de detecção de \textit{landmarks};
+  \item \textbf{Duração:} sessões de captura de aproximadamente 1 minuto por
+  gesto por participante;
+  \item \textbf{Ferramenta:} \textit{script} de coleta interativo desenvolvido
+  para este trabalho (\texttt{collect\_data.py}), que grava os \textit{landmarks}
+  extraídos pelo MediaPipe em formato \texttt{.npy}.
+\end{itemize}
+
+Esse protocolo é compatível, em ordem de grandeza, com \textit{datasets} de
+referência da literatura de Libras: o MINDS-Libras, por exemplo, foi construído
+com 12 sinalizantes cobrindo 20 sinais (REZENDE; ALMEIDA; GUIMARÃES, 2021),
+reforçando que a escala adotada é adequada para um trabalho de conclusão de curso
+em estágio de validação de conceito, embora ainda distante da escala necessária
+para generalização robusta (ver Seção~\ref{subsec:limitacoes}).
+
+\begin{figure}[htbp]
+\centering
+\figpendente{Print da tela de coleta: \textit{landmarks} desenhados sobre a mão,
+gesto/participante atual e contador de repetições.}
+\caption{Interface de coleta de dados (\texttt{collect\_data.py}) durante a
+gravação de um gesto.}
+\label{fig:coleta}
+\end{figure}
+
+\subsection{Critérios de exclusão e rotulação das amostras}
+
+Foram descartadas do \textit{dataset} final as amostras em que os
+\textit{landmarks} da mão eram perdidos durante a captura — por exemplo, quando a
+mão saía parcialmente do quadro ou o rastreamento do MediaPipe falhava
+momentaneamente —, bem como gravações em que o gesto foi executado de forma
+incompleta. Esse critério de exclusão foi aplicado automaticamente durante a
+etapa de coleta, descartando a sequência em tempo real sempre que a detecção de
+\textit{landmarks} era interrompida.
+
+% [PENDENTE: descrever como as amostras foram rotuladas — manualmente ou
+% automaticamente a partir da estrutura de pastas do dataset (dataset/<gesto>/...)]
+
+\subsection{Pipeline de processamento}
+\label{subsec:pipeline}
+
+O sistema opera em um \textit{pipeline} sequencial de sete etapas, executado
+inteiramente de forma local, sem servidor ou \textit{backend} remoto. A
+Figura~\ref{fig:pipeline} apresenta o fluxo, e a Tabela~\ref{tab:pipeline}
+detalha cada etapa.
+
+\begin{figure}[htbp]
+\centering
+\figpendente{Diagrama do \textit{pipeline}: 1.~Captura (OpenCV, 640$\times$480) →
+2.~Detecção (MediaPipe, 21 \textit{landmarks}) → 3.~Normalização (centro no
+pulso) → 4.~\textit{Buffer} (50 \textit{frames}, passo 10) → 5.~CNN + LSTM
+(entrada 50$\times$63) → 6.~Limiar (confiança $\geq$ 70\%) → 7.~Frase
+(\textit{debounce} 1,5~s; WORDS / LETTERS / MIXED).}
+\caption{Pipeline de processamento do LibrasAI, da captura à formação de frases.}
+\label{fig:pipeline}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Etapas do pipeline de processamento.}
+\label{tab:pipeline}
+\small
+\begin{tabular}{@{}c p{3cm} p{7.5cm}@{}}
+\toprule
+\textbf{\#} & \textbf{Etapa} & \textbf{Detalhamento técnico} \\
+\midrule
+1 & Captura &
+OpenCV abre a webcam com \textit{backend} \texttt{CAP\_DSHOW} (Windows).
+Aplica-se espelhamento horizontal e redimensionamento para 640$\times$480. \\
+\addlinespace
+2 & Detecção de mãos &
+MediaPipe Hands processa o \textit{frame} RGB e retorna 21 \textit{landmarks}
+$(x, y, z)$ normalizados por mão, com suporte a 2 mãos simultâneas. \\
+\addlinespace
+3 & Normalização espacial &
+Centralização dos \textit{landmarks} pelo pulso (\textit{landmark} 0) e divisão
+pela distância pulso–base do dedo médio (\textit{landmark} 9), removendo variação
+de posição e de distância da câmera. \\
+\addlinespace
+4 & \textit{Buffer} deslizante &
+\textit{Buffer} circular de 50 \textit{frames} (\texttt{SequenceBuffer}). A cada
+10 novos \textit{frames} (\texttt{step\_size}), uma inferência é disparada,
+formando uma janela deslizante para predição contínua. \\
+\addlinespace
+5 & Modelo CNN + LSTM &
+Entrada $(1, 50, 63)$. \texttt{TimeDistributed(Conv1D)} extrai características
+espaciais por \textit{frame}; \texttt{LSTM(128)} e \texttt{LSTM(64)} modelam a
+dinâmica temporal; \texttt{Dense(64)} e \textit{softmax} classificam. \\
+\addlinespace
+6 & Limiar de confiança &
+Apenas predições com confiança $\geq$ 70\% são aceitas. As três classes mais
+prováveis são exibidas como barras de probabilidade na tela. \\
+\addlinespace
+7 & Formação de frases &
+\textit{Debounce} temporal de 1,5~s evita repetições indevidas. Modos: WORDS
+(gesto = palavra), LETTERS (gesto = letra, acumulado em palavra) e MIXED (seleção
+automática por tamanho). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Arquitetura do modelo}
+\label{subsec:arquitetura}
+
+A rede neural híbrida recebe como entrada um tensor de dimensões $(50, 63)$ — 50
+\textit{frames} por 21 \textit{landmarks} por 3 coordenadas. Camadas
+convolucionais distribuídas no tempo extraem características espaciais de cada
+\textit{frame}; em seguida, duas camadas LSTM modelam a dinâmica temporal da
+sequência, e camadas densas realizam a classificação. A
+Tabela~\ref{tab:topologia} descreve a topologia camada a camada.
+
+O treinamento foi conduzido com os \textit{callbacks} \texttt{EarlyStopping},
+\texttt{ReduceLROnPlateau}, \texttt{ModelCheckpoint} e \texttt{CSVLogger}, e o
+modelo final foi exportado tanto em formato TFLite, para viabilizar uso futuro em
+dispositivos móveis, quanto em \texttt{SavedModel}, para uso em produção.
+
+% [PENDENTE: informar os hiperparâmetros de treinamento: otimizador, taxa de
+% aprendizado inicial, batch size, número máximo de épocas e paciência do
+% EarlyStopping; a divisão treino/validação/teste (proporções e se a divisão foi
+% por amostra ou por participante); e as técnicas de data augmentation aplicadas.]
+
+\begin{table}[htbp]
+\centering
+\caption{Topologia do modelo CNN + LSTM ($N$ = número de classes).}
+\label{tab:topologia}
+\small
+\begin{tabular}{@{}c p{3.6cm} p{5.6cm} c@{}}
+\toprule
+\textbf{\#} & \textbf{Camada} & \textbf{Configuração} & \textbf{Saída} \\
+\midrule
+1 & Entrada & 50 \textit{frames} $\times$ 63 valores & $(50, 63)$ \\
+2 & \texttt{Reshape} & — & $(50, 63, 1)$ \\
+3 & \texttt{TimeDistributed(Conv1D)} & 32 filtros, \textit{kernel} 3, ReLU, \textit{padding} \texttt{same} & $(50, 63, 32)$ \\
+4 & \texttt{TimeDistributed(Conv1D)} & 64 filtros, \textit{kernel} 3, ReLU, \textit{padding} \texttt{same} & $(50, 63, 64)$ \\
+5 & \texttt{TimeDistributed(GlobalAvgPool1D)} & — & $(50, 64)$ \\
+6 & \texttt{TimeDistributed(Dropout)} & taxa 0,2 & $(50, 64)$ \\
+7 & \texttt{LSTM} & 128 unidades, \texttt{return\_sequences=True}; \texttt{BatchNormalization}; \textit{Dropout} 0,4 & $(50, 128)$ \\
+8 & \texttt{LSTM} & 64 unidades, \texttt{return\_sequences=False}; \texttt{BatchNormalization}; \textit{Dropout} 0,4 & $(64)$ \\
+9 & \texttt{Dense} & 64 unidades, ReLU; \textit{Dropout} 0,2 & $(64)$ \\
+10 & \texttt{Dense} (saída) & $N$ unidades, \textit{softmax} & $(N)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Protocolo de validação com usuários}
+\label{subsec:validacao}
+
+Uma vez que o modelo foi treinado e testado apenas com dados de participantes
+ouvintes envolvidos no desenvolvimento, é necessária uma etapa de validação com o
+público-alvo do sistema. Uma tentativa inicial de coleta por meio de formulários
+\textit{on-line} não produziu resultados práticos, sobretudo pela ausência de
+mediação em Libras. Por isso, optou-se por uma validação assistida, presencial ou
+remota, com o apoio de pessoas fluentes em Libras.
+
+\subsubsection{Participantes}
+
+A validação será conduzida com um grupo de quatro a cinco integrantes da
+comunidade surda e usuária de Libras, contatados por meio de um grupo localizado
+no município de Gravatá (PE). Serão incluídos participantes maiores de idade,
+usuários de Libras, com qualquer grau de surdez, incluindo usuários de implante
+coclear. Nenhum dos participantes terá contribuído com amostras para o conjunto
+de treinamento, de modo que a validação também cumpra o papel de avaliação
+independente do sinalizante (\textit{signer-independent}).
+
+\subsubsection{Procedimento}
+
+Cada sessão seguirá as etapas abaixo:
+
+\begin{enumerate}[leftmargin=2cm]
+  \item apresentação do estudo em Libras e assinatura do Termo de Consentimento
+  Livre e Esclarecido (TCLE);
+  \item registro dos dados demográficos do participante na plataforma, associados
+  a um identificador anônimo (P01, P02, \dots);
+  \item breve demonstração do sistema e período de familiarização;
+  \item execução, pelo participante, dos gestos do vocabulário reconhecido, com
+  repetições, enquanto a plataforma registra automaticamente as métricas de
+  interação;
+  \item formação livre de frases curtas com o vocabulário disponível;
+  \item aplicação do questionário de percepção, com mediação em Libras.
+\end{enumerate}
+
+\subsubsection{Dados coletados}
+
+A plataforma deverá registrar e associar automaticamente a cada identificador
+anônimo os seguintes dados:
+
+\begin{itemize}[leftmargin=2cm]
+  \item \textbf{Demográficos:} sexo, faixa etária, grau de surdez, uso de
+  implante coclear ou aparelho auditivo e tempo de uso de Libras;
+  \item \textbf{Métricas de interação:} gesto esperado e gesto predito, confiança
+  da predição, tempo até o reconhecimento, número de tentativas por gesto e
+  frases formadas;
+  \item \textbf{Percepção:} respostas ao questionário de \textit{feedback},
+  contemplando facilidade de uso, adequação dos gestos reconhecidos, velocidade
+  de resposta e utilidade percebida, em escala visual (por exemplo, de 1 a 5) e
+  com espaço para comentários registrados com auxílio do intérprete.
+\end{itemize}
+
+Como parte do público-alvo pode ter proficiência limitada em português escrito, o
+questionário será apresentado com apoio de intérprete e com escalas visuais, em
+vez de perguntas exclusivamente textuais.
+
+\subsubsection{Análise}
+
+A partir das métricas registradas serão calculados, por participante e no
+agregado, a acurácia de reconhecimento, a matriz de confusão e o tempo médio até
+o reconhecimento. As respostas do questionário serão sumarizadas por estatística
+descritiva. Os resultados serão comparados aos obtidos no conjunto de teste
+original (Seção~\ref{subsec:metricas-modelo}), permitindo estimar a perda de
+desempenho em usuários externos ao treinamento.
+
+\subsubsection{Aspectos éticos}
+
+Os dados serão armazenados de forma anonimizada, sem gravação de vídeo
+identificável: a plataforma armazena apenas as coordenadas dos \textit{landmarks}
+e as métricas derivadas.
+
+% [PENDENTE: confirmar com a coordenação se o estudo precisa ser submetido a
+% Comitê de Ética em Pesquisa (Plataforma Brasil) e anexar o TCLE como apêndice.]

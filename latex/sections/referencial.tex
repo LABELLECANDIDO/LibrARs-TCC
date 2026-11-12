@@ -1,0 +1,101 @@
+%====================== REFERENCIAL TEÓRICO ======================
+\section{Referencial teórico}
+
+\subsection{A Língua Brasileira de Sinais (Libras)}
+
+A Libras é uma língua natural, de modalidade visuoespacial, dotada de estrutura
+gramatical própria — e não uma codificação gestual do português, equívoco comum
+entre pessoas não familiarizadas com a língua de sinais (QUADROS; KARNOPP, 2004;
+QUADROS, 2019). Segundo Quadros e Karnopp (2004), a estrutura das línguas de
+sinais, a partir dos estudos pioneiros de Stokoe, é composta por cinco parâmetros
+fonológicos que, isoladamente, não carregam significado, mas que em combinação
+formam os sinais: configuração de mão (CM), ponto de articulação (PA), movimento
+(M), orientação (O) e expressões não-manuais (ENM), estas últimas relacionadas a
+movimentos da face, dos olhos, da cabeça ou do tronco durante a sinalização.
+
+Esse arcabouço teórico tem implicação direta sobre o problema técnico enfrentado
+neste trabalho: como o parâmetro de movimento é constitutivo do sinal — e não
+incidental —, sistemas de reconhecimento automático de Libras não podem se
+limitar à classificação de poses estáticas da mão em um único \textit{frame}. É
+necessário capturar a dinâmica temporal do gesto, o que justifica, do ponto de
+vista linguístico, a escolha de uma arquitetura de rede neural capaz de modelar
+sequências (Seções~\ref{subsec:cnn} e~\ref{subsec:lstm}).
+
+Adicionalmente, as expressões não-manuais cumprem funções gramaticais na Libras —
+marcação de referência específica, referência pronominal, partícula negativa,
+entre outras (QUADROS; KARNOPP, 2004) —, o que representa uma limitação
+reconhecida do escopo atual deste trabalho, concentrado no rastreamento dos
+\textit{landmarks} das mãos e ainda não incorporando expressão facial (ver
+Seção~\ref{subsec:limitacoes}).
+
+\subsection{Reconhecimento de língua de sinais}
+
+O reconhecimento automático de língua de sinais (SLR) é uma tarefa da área de
+interação humano-computador que consiste em traduzir, computacionalmente, sinais
+executados por um sinalizante em texto ou fala correspondente. Trata-se de um
+problema mais complexo do que o reconhecimento genérico de gestos, pois exige
+discriminação fina entre configurações de mão, orientações e expressões faciais
+sutis, todas fortemente acopladas a dependências temporais entre os
+\textit{frames} de vídeo (REGO et al., 2025).
+
+A literatura da área costuma dividir as abordagens de captura em dois grandes
+grupos: sistemas baseados em sensores vestíveis (luvas instrumentadas, sensores
+de eletromiografia) e sistemas baseados em imagem/vídeo, com ou sem sensores de
+profundidade (câmeras RGB, RGB-D, Kinect). Sistemas baseados em imagem, como o
+desenvolvido neste trabalho, têm a vantagem de não exigir \textit{hardware}
+especializado do usuário, ao custo de maior sensibilidade a variações de
+iluminação, oclusão e ângulo de câmera.
+
+\subsection{Redes Neurais Convolucionais (CNN)}
+\label{subsec:cnn}
+
+Redes Neurais Convolucionais (\textit{Convolutional Neural Networks} — CNN) são
+arquiteturas de aprendizado profundo especializadas na extração de
+características espaciais a partir de dados estruturados em grade, como imagens
+ou, no caso deste trabalho, vetores de coordenadas de \textit{landmarks} por
+\textit{frame}. Camadas convolucionais aplicam filtros deslizantes que aprendem a
+detectar padrões locais — bordas, formas, relações geométricas entre pontos —
+sem que essas características precisem ser definidas manualmente.
+
+No \textit{pipeline} deste trabalho, camadas convolucionais unidimensionais
+(\texttt{Conv1D}) são aplicadas de forma distribuída no tempo
+(\texttt{TimeDistributed}) sobre cada \textit{frame} da sequência de
+\textit{landmarks}, extraindo, para cada instante, um vetor de características que
+resume a configuração espacial da mão naquele \textit{frame}, antes de a
+informação ser repassada às camadas recorrentes responsáveis por modelar a
+dinâmica temporal (Seção~\ref{subsec:arquitetura}).
+
+\subsection{Redes LSTM (\textit{Long Short-Term Memory})}
+\label{subsec:lstm}
+
+Redes recorrentes do tipo LSTM (\textit{Long Short-Term Memory}), propostas
+originalmente por Hochreiter e Schmidhuber (1997), foram desenvolvidas para
+superar a dificuldade das redes recorrentes tradicionais em aprender dependências
+de longo prazo em sequências, por meio de um mecanismo de portões
+(\textit{gates}) que regula o fluxo de informação retida ao longo do tempo.
+
+Pigou et al.\ (2018) demonstraram, em uma comparação sistemática de arquiteturas
+para reconhecimento de gestos em vídeo, que modelos recorrentes como LSTM e GRU
+superam consistentemente abordagens baseadas em \textit{pooling} temporal
+simples, por preservarem de forma mais fiel a ordem e a duração relativa dos
+movimentos — um resultado que fundamenta diretamente a escolha arquitetural
+adotada neste trabalho, descrita na Seção~\ref{subsec:arquitetura}.
+
+\subsection{MediaPipe Hands}
+
+MediaPipe Hands é uma solução de rastreamento de mãos em tempo real desenvolvida
+pelo Google, capaz de predizer, a partir de uma única câmera RGB, um esqueleto de
+21 pontos-chave (\textit{landmarks}) por mão, com coordenadas $(x, y, z)$,
+operando em velocidade compatível com aplicações interativas mesmo em
+\textit{hardware} de consumo (ZHANG et al., 2020). A solução é composta por dois
+modelos em cascata: um detector de palma, responsável por localizar a região da
+mão na imagem, e um modelo de \textit{landmarks}, que opera sobre essa região
+recortada para predizer os 21 pontos com precisão.
+
+A escolha do MediaPipe como etapa de extração de características, em vez do
+processamento direto do vídeo RGB bruto por uma rede convolucional 3D, segue uma
+tendência observada em trabalhos recentes de reconhecimento de Libras (MOREIRA,
+2026), que reduz o custo computacional do \textit{pipeline} e viabiliza a
+inferência em tempo real sem depender de GPUs de alto desempenho — requisito
+importante para um sistema pensado para \textit{hardware} comum, como descrito
+nos objetivos deste trabalho.

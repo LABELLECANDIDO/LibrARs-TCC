@@ -1,0 +1,64 @@
+%============== ESTADO DA ARTE E TRABALHOS RELACIONADOS ==============
+\section{Estado da arte e trabalhos relacionados}
+
+Esta seção situa o LibrasAI em relação a trabalhos recentes de reconhecimento
+automático de Libras e de outras línguas de sinais que compartilham escolhas
+técnicas semelhantes — uso de MediaPipe, arquiteturas CNN/LSTM híbridas e
+\textit{datasets} de escala comparável. A Tabela~\ref{tab:relacionados} resume a
+comparação.
+
+Fora do contexto brasileiro, bases públicas como a LSA64, da língua de sinais
+argentina (RONCHETTI et al., 2016), e a AUTSL, da língua de sinais turca (SINCAN;
+KELES, 2020), tornaram-se referências recorrentes para avaliação de modelos de
+SLR, o que evidencia a importância de bases próprias e públicas para cada língua
+de sinais — lacuna ainda presente no caso da Libras.
+
+\begin{table}[htbp]
+\centering
+\caption{Trabalhos relacionados e comparação com o LibrasAI.}
+\label{tab:relacionados}
+\small
+\begin{tabular}{@{}p{3.2cm} p{2.6cm} p{6.4cm}@{}}
+\toprule
+\textbf{Trabalho} & \textbf{Referência} & \textbf{Comparação com o LibrasAI} \\
+\midrule
+MediaPipe Hands: rastreamento de mãos em tempo real &
+Zhang et al., 2020 &
+Base do \textit{pipeline} de extração de \textit{landmarks} adotado; não é um
+sistema de reconhecimento de língua de sinais. O LibrasAI usa essa solução sobre
+um \textit{dataset} próprio de Libras, com normalização espacial pelo pulso. \\
+\addlinespace
+MINDS-Libras: base de dados e modelos CNN &
+Rezende, Almeida e Guimarães, 2021 &
+\textit{Dataset} de referência com 1.155 vídeos, 20 sinais e 12 sinalizantes.
+Serve de \textit{benchmark} de escala para o protocolo de coleta do LibrasAI (10
+participantes, 10 repetições por gesto). \\
+\addlinespace
+Reconhecimento de sílabas em Libras para HRI &
+[PENDENTE: autor], 2026 &
+Sistema em tempo real com MediaPipe e CNN, acurácia de 97,4\% — mesmo valor
+obtido pelo LibrasAI, ainda que sobre \textit{datasets} e vocabulários distintos,
+o que reforça a plausibilidade do resultado preliminar. \\
+\addlinespace
+Reconhecimento dinâmico via CNN sobre matriz espaço-temporal &
+Moreira, 2026 &
+Também usa MediaPipe e janela deslizante, mas dispensa redes recorrentes.
+Reconhece explicitamente a necessidade de testes com maior diversidade de
+usuários para avaliar generalização — limitação também presente no estágio atual
+do LibrasAI. \\
+\addlinespace
+Reconhecimento via \textit{Fast Fourier Transform} e \textit{features}
+cinemáticas &
+Rego et al., 2025 &
+Avaliado no MINDS-Libras, atingiu 92\% de acurácia, superando LSTM (84\%), BiLSTM
+(89\%) e CNN (89\%) isoladas — evidência da robustez de abordagens híbridas,
+linha seguida pelo LibrasAI. \\
+\addlinespace
+Reconhecimento de gestos com recorrência e convoluções temporais &
+Pigou et al., 2018 &
+Demonstra a superioridade de modelos recorrentes (LSTM/GRU) sobre \textit{pooling}
+temporal simples para gestos dinâmicos — fundamenta a escolha arquitetural do
+LibrasAI. \\
+\bottomrule
+\end{tabular}
+\end{table}

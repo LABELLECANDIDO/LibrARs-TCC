@@ -1,0 +1,64 @@
+%=========================== RESUMO ===========================
+\begingroup
+\begin{center}{\bfseries RESUMO}\end{center}
+\vspace{0.3cm}
+
+\noindent No Brasil, estima-se que mais de 10 milhões de pessoas possuam algum
+grau de deficiência auditiva, e a comunicação entre essa população e pessoas
+ouvintes depende, na maior parte dos contextos cotidianos, da presença de um
+intérprete de Língua Brasileira de Sinais (Libras) — recurso escasso frente à
+demanda real. Este trabalho apresenta o LibrasAI, um sistema de reconhecimento
+automático de gestos dinâmicos de Libras em tempo real, desenvolvido a partir de
+técnicas de visão computacional e aprendizado profundo. O sistema captura vídeo
+de uma webcam convencional, extrai 21 \textit{landmarks} de cada mão por meio da
+biblioteca MediaPipe, normaliza espacialmente essas coordenadas e as processa
+através de uma rede neural híbrida CNN + LSTM, capaz de classificar sequências
+temporais de 50 \textit{frames} e convertê-las em texto, formando palavras e
+frases de maneira contínua. A pesquisa se classifica como pesquisa aplicada do
+problema, seguida do desenvolvimento de uma aplicação funcional. O protocolo de
+coleta de dados envolveu 10 participantes, com no mínimo 10 repetições por gesto,
+em ambientes de fundo neutro e iluminação controlada. Resultados preliminares,
+obtidos com um \textit{dataset} inicial de 2 classes de gestos, indicam acurácia
+de 97,4\%, F1-score macro de 0,97 e coeficiente Kappa de Cohen de 0,94 — valores
+condizentes com a literatura da área, ainda que obtidos sobre uma base de dados
+reduzida. São discutidas as limitações do trabalho, sobretudo quanto ao tamanho
+do \textit{dataset} e à ausência de validação com usuários externos ao
+treinamento, e propostas as etapas seguintes de expansão do vocabulário
+reconhecido e de validação com a comunidade surda.
+
+\vspace{0.4cm}
+\noindent\textbf{Palavras-chave:} Língua Brasileira de Sinais; Libras;
+Reconhecimento de gestos; Visão computacional; Aprendizado profundo; CNN; LSTM;
+MediaPipe.
+
+\vspace{1.0cm}
+\begin{center}{\bfseries ABSTRACT}\end{center}
+\vspace{0.3cm}
+
+\noindent In Brazil, more than 10 million people are estimated to have some
+degree of hearing impairment, and communication between this population and
+hearing people depends, in most everyday contexts, on the presence of a Brazilian
+Sign Language (Libras) interpreter — a scarce resource relative to actual demand.
+This work presents LibrasAI, a real-time automatic recognition system for dynamic
+Libras gestures, built upon computer vision and deep learning techniques. The
+system captures video from a conventional webcam, extracts 21 landmarks per hand
+using the MediaPipe library, spatially normalizes these coordinates, and
+processes them through a hybrid CNN + LSTM neural network capable of classifying
+temporal sequences of 50 frames and converting them into text, continuously
+forming words and sentences. The research is classified as applied
+problem-oriented research followed by the development of a functional
+application. The data collection protocol involved 10 participants, with at least
+10 repetitions per gesture, in neutral-background, controlled-lighting
+environments. Preliminary results, obtained with an initial dataset of 2 gesture
+classes, indicate 97.4\% accuracy, a macro F1-score of 0.97, and a Cohen's Kappa
+of 0.94 — values consistent with the literature, albeit obtained over a small
+dataset. The work's limitations are discussed, particularly regarding dataset
+size and the lack of validation with users external to training, along with the
+next steps for expanding the recognized vocabulary and validating the system with
+the deaf community.
+
+\vspace{0.4cm}
+\noindent\textbf{Keywords:} Brazilian Sign Language; Libras; Gesture recognition;
+Computer vision; Deep learning; CNN; LSTM; MediaPipe.
+\endgroup
+\newpage

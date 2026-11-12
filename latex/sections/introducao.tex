@@ -1,0 +1,85 @@
+%========================= INTRODUÇÃO =========================
+\section{Introdução}
+
+\subsection{Contextualização}
+
+No Brasil, estima-se que mais de 10 milhões de pessoas possuam algum grau de
+deficiência auditiva (IBGE, 2023). A Língua Brasileira de Sinais (Libras) é
+reconhecida oficialmente como meio legal de comunicação e expressão pela Lei
+Federal n.\ 10.436/2002 e regulamentada pelo Decreto n.\ 5.626/2005, que
+determina sua inclusão em serviços públicos, na educação e na saúde (BRASIL,
+2002; BRASIL, 2005). Na prática, contudo, essa determinação legal é raramente
+cumprida de forma ampla, em razão da escassez de intérpretes qualificados frente
+à demanda real da população surda.
+
+Essa lacuna se traduz em uma dependência quase exclusiva da presença física de um
+intérprete humano para que a comunicação entre pessoas surdas e ouvintes se
+estabeleça. Hospitais, bancos, repartições públicas e ambientes educacionais
+frequentemente não dispõem desse recurso de forma contínua, de modo que qualquer
+atendimento emergencial ou cotidiano se transforma em uma barreira concreta para
+o indivíduo surdo.
+
+O avanço recente de técnicas de visão computacional e aprendizado profundo
+(\textit{deep learning}) abre uma via alternativa de mediação dessa comunicação:
+sistemas capazes de reconhecer automaticamente gestos de língua de sinais a
+partir de uma câmera comum, sem necessidade de \textit{hardware} especializado. É
+nesse contexto que se insere o presente trabalho.
+
+\subsection{Problema e justificativa}
+
+O problema central que motiva este trabalho pode ser formulado da seguinte
+maneira: como reduzir a dependência de um intérprete humano presencial para
+viabilizar a comunicação básica entre pessoas surdas e ouvintes, utilizando
+apenas equipamentos amplamente acessíveis, como um computador com webcam?
+
+Do ponto de vista social, a justificativa é direta: qualquer solução tecnológica
+capaz de mitigar essa barreira, ainda que parcialmente, tem potencial de impacto
+imediato sobre o cotidiano da comunidade surda brasileira. Do ponto de vista
+acadêmico, a justificativa se apoia em uma lacuna identificada na literatura: a
+maior parte dos sistemas de reconhecimento de língua de sinais (\textit{Sign
+Language Recognition} — SLR) descritos internacionalmente concentra-se na Língua
+Americana de Sinais (ASL) ou em línguas de sinais europeias. Sistemas voltados
+especificamente para a Libras, com coleta de dados realizada no Brasil, ainda são
+relativamente escassos e representam uma contribuição genuína ao campo, com
+potencial direto de impacto social sobre a população brasileira (REZENDE;
+ALMEIDA; GUIMARÃES, 2021).
+
+\subsection{Objetivos}
+
+\subsubsection{Objetivo geral}
+
+Desenvolver um sistema funcional de reconhecimento de gestos dinâmicos de Libras
+em tempo real, capaz de converter sequências de gestos em texto e formar frases
+completas por meio de técnicas de aprendizado profundo e visão computacional.
+
+\subsubsection{Objetivos específicos}
+
+\begin{itemize}[leftmargin=2cm]
+  \item implementar um \textit{pipeline} de captura e processamento de vídeo com
+  detecção de \textit{landmarks} de mãos via MediaPipe (21 pontos por mão, 30
+  FPS);
+  \item construir e treinar um modelo híbrido CNN + LSTM capaz de classificar
+  sequências temporais de gestos com acurácia superior a 90\%;
+  \item criar um sistema de coleta de dados interativo para construção de um
+  \textit{dataset} próprio de Libras, com suporte a múltiplos usuários;
+  \item implementar a formação automática de frases com \textit{debounce}
+  temporal e suporte a três modos de operação: palavras inteiras, soletração
+  letra a letra e modo misto;
+  \item prover uma interface visual em tempo real que exiba o gesto detectado, o
+  percentual de confiança da predição, o progresso do \textit{buffer} de captura
+  e a frase formada;
+  \item validar o sistema com integrantes da comunidade surda e usuária de
+  Libras, registrando métricas de uso e percepção dos participantes.
+\end{itemize}
+
+\subsection{Estrutura do trabalho}
+
+Este trabalho está organizado em sete seções, incluindo esta introdução. A
+Seção~2 apresenta o referencial teórico, abordando os aspectos linguísticos da
+Libras e os fundamentos técnicos de visão computacional e aprendizado profundo
+utilizados. A Seção~3 discute os trabalhos relacionados e o estado da arte em
+reconhecimento de língua de sinais. A Seção~4 descreve a metodologia adotada,
+incluindo o protocolo de validação com usuários. A Seção~5 detalha o sistema
+desenvolvido. A Seção~6 apresenta e discute os resultados obtidos, suas
+limitações e os trabalhos futuros. Por fim, a Seção~7 traz as considerações
+finais.
