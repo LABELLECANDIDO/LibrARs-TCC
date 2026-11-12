@@ -382,28 +382,23 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
-        {/* ── Zona de perigo ── */}
-        <div className="mt-8 bg-white rounded-2xl border-2 border-red-200 overflow-hidden">
-          <div className="bg-red-50 px-5 py-3 border-b border-red-100">
-            <h2 className="font-bold text-red-800 text-sm">⚠️ Zona de perigo</h2>
-            <p className="text-xs text-red-600 mt-0.5">Ações irreversíveis. Use para preparar uma coleta limpa.</p>
-          </div>
-          <div className="p-5 flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => { setResetScope('gestures'); setResetConfirmText('') }}
-              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
-            >
-              Zerar apenas os gestos
-              <span className="block text-xs font-normal text-amber-600 mt-0.5">Mantém todas as contas</span>
-            </button>
-            <button
-              onClick={() => { setResetScope('all'); setResetConfirmText('') }}
-              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
-            >
-              Zerar tudo (manter só meu login)
-              <span className="block text-xs font-normal text-red-500 mt-0.5">Apaga gestos, convites e outros usuários</span>
-            </button>
-          </div>
+        {/* ── Zona de perigo (discreta) ── */}
+        <div className="mt-8 flex flex-wrap items-center gap-2 text-xs text-gray-400">
+          <span>Zona de perigo:</span>
+          <button
+            onClick={() => { setResetScope('gestures'); setResetConfirmText('') }}
+            title="Apaga todos os gestos; mantém as contas"
+            className="px-2.5 py-1 rounded-md border border-gray-200 text-amber-600 hover:bg-amber-50 transition-colors"
+          >
+            Zerar gestos
+          </button>
+          <button
+            onClick={() => { setResetScope('all'); setResetConfirmText('') }}
+            title="Apaga gestos, convites e outros usuários; mantém só o seu login"
+            className="px-2.5 py-1 rounded-md border border-gray-200 text-red-500 hover:bg-red-50 transition-colors"
+          >
+            Zerar tudo
+          </button>
         </div>
 
         {resetResult && (
