@@ -121,6 +121,11 @@ async def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_session_metrics_user ON session_metrics(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id)",
 
+        # Conserta defaults de expiração em bancos antigos (convites nasciam já
+        # expirados quando a coluna tinha um default incorreto).
+        "ALTER TABLE invite_tokens ALTER COLUMN expires_at SET DEFAULT now() + INTERVAL '7 days'",
+        "ALTER TABLE reset_tokens  ALTER COLUMN expires_at SET DEFAULT now() + INTERVAL '24 hours'",
+
         # Trigger: atualiza updated_at automaticamente
         """
         CREATE OR REPLACE FUNCTION set_updated_at()

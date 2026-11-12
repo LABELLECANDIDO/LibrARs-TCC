@@ -96,8 +96,11 @@ async def delete_user(user_id: str, admin: dict = Depends(get_current_admin)):
 
 @router.post("/invites")
 async def create_invite(admin: dict = Depends(get_current_admin)):
+    # Grava a expiração explicitamente (não depende do default da coluna, que em
+    # bancos antigos pode estar incorreto e fazer o convite nascer já expirado).
     row = await db.fetchrow(
-        "INSERT INTO invite_tokens (created_by) VALUES ($1) RETURNING token, expires_at",
+        "INSERT INTO invite_tokens (created_by, expires_at)"
+        " VALUES ($1, now() + INTERVAL '7 days') RETURNING token, expires_at",
         admin["user_id"],
     )
     return {"token": row["token"], "expires_at": row["expires_at"].isoformat()}
