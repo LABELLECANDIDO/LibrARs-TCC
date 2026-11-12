@@ -16,6 +16,10 @@ export default function InviteRegister() {
   const [name, setName] = useState('')
   const [isStudent, setIsStudent] = useState<boolean | null>(null)
   const [hasDisability, setHasDisability] = useState<boolean | null>(null)
+  const [sexo, setSexo] = useState('')
+  const [faixaEtaria, setFaixaEtaria] = useState('')
+  const [nivelSurdez, setNivelSurdez] = useState('')
+  const [sabeLibras, setSabeLibras] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -33,10 +37,18 @@ export default function InviteRegister() {
       setError('Por favor, responda todas as perguntas do perfil.')
       return
     }
+    if (!sexo || !faixaEtaria || !nivelSurdez || !sabeLibras) {
+      setError('Por favor, responda todas as perguntas do perfil.')
+      return
+    }
     setError('')
     setLoading(true)
     try {
-      const res = await api.auth.registerInvite(token, email, password, name, isStudent, hasDisability)
+      const res = await api.auth.registerInvite(token, {
+        email, password, name,
+        is_student: isStudent, has_disability: hasDisability,
+        sexo, faixa_etaria: faixaEtaria, nivel_surdez: nivelSurdez, sabe_libras: sabeLibras,
+      })
       setAuth(res.token, res.user)
       loadFromApi().catch(() => null)
       navigate('/dashboard', { replace: true })
@@ -158,6 +170,68 @@ export default function InviteRegister() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sexo</label>
+              <select
+                value={sexo}
+                onChange={e => setSexo(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              >
+                <option value="" disabled>Selecione…</option>
+                <option value="feminino">Feminino</option>
+                <option value="masculino">Masculino</option>
+                <option value="outro">Outro</option>
+                <option value="nao_informar">Prefiro não informar</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Faixa etária</label>
+              <select
+                value={faixaEtaria}
+                onChange={e => setFaixaEtaria(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              >
+                <option value="" disabled>Selecione…</option>
+                <option value="ate_17">Até 17 anos</option>
+                <option value="18_24">18 a 24 anos</option>
+                <option value="25_34">25 a 34 anos</option>
+                <option value="35_44">35 a 44 anos</option>
+                <option value="45_59">45 a 59 anos</option>
+                <option value="60_mais">60 anos ou mais</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nível de surdez</label>
+              <select
+                value={nivelSurdez}
+                onChange={e => setNivelSurdez(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              >
+                <option value="" disabled>Selecione…</option>
+                <option value="nenhum">Nenhum (ouvinte)</option>
+                <option value="leve">Leve</option>
+                <option value="moderado">Moderado</option>
+                <option value="severo">Severo</option>
+                <option value="profundo">Profundo</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Você sabe Libras?</label>
+              <select
+                value={sabeLibras}
+                onChange={e => setSabeLibras(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
+              >
+                <option value="" disabled>Selecione…</option>
+                <option value="nao">Não</option>
+                <option value="basico">Básico</option>
+                <option value="fluente">Fluente</option>
+              </select>
             </div>
           </div>
 

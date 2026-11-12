@@ -106,10 +106,17 @@ export const api = {
         body: JSON.stringify({ email, password, name }),
       }),
 
-    registerInvite: (token: string, email: string, password: string, name?: string, is_student?: boolean, has_disability?: boolean) =>
+    registerInvite: (
+      token: string,
+      data: {
+        email: string; password: string; name?: string
+        is_student: boolean; has_disability: boolean
+        sexo: string; faixa_etaria: string; nivel_surdez: string; sabe_libras: string
+      }
+    ) =>
       req<AuthResponse>('/api/auth/register-invite', {
         method: 'POST',
-        body: JSON.stringify({ token, email, password, name, is_student, has_disability }),
+        body: JSON.stringify({ token, ...data }),
       }),
 
     login: (email: string, password: string) =>
@@ -154,7 +161,7 @@ export const api = {
 
   admin: {
     getUsers: () =>
-      req<{ total: number; users: Array<{ id: string; email: string; name: string; role: string; is_student: boolean; has_disability: boolean; created_at: string }> }>(
+      req<{ total: number; users: Array<{ id: string; email: string; name: string; role: string; is_student: boolean; has_disability: boolean; sexo: string | null; faixa_etaria: string | null; nivel_surdez: string | null; sabe_libras: string | null; created_at: string }> }>(
         '/api/admin/users'
       ),
 

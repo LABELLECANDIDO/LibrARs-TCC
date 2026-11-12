@@ -20,7 +20,9 @@ class ResetRequest(BaseModel):
 @router.get("/users")
 async def list_users(_: dict = Depends(get_current_admin)):
     users = await db.fetch(
-        "SELECT id, email, name, role, is_student, has_disability, created_at FROM users ORDER BY created_at DESC"
+        "SELECT id, email, name, role, is_student, has_disability,"
+        " sexo, faixa_etaria, nivel_surdez, sabe_libras, created_at"
+        " FROM users ORDER BY created_at DESC"
     )
     return {
         "total": len(users),
@@ -32,6 +34,10 @@ async def list_users(_: dict = Depends(get_current_admin)):
                 "role": u["role"],
                 "is_student": u["is_student"],
                 "has_disability": u["has_disability"],
+                "sexo": u["sexo"],
+                "faixa_etaria": u["faixa_etaria"],
+                "nivel_surdez": u["nivel_surdez"],
+                "sabe_libras": u["sabe_libras"],
                 "created_at": u["created_at"].isoformat() if u["created_at"] else None,
             }
             for u in users
@@ -203,7 +209,8 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
                u.id          AS user_id,
                u.name        AS user_name,
                u.is_student,
-               u.has_disability
+               u.has_disability,
+               u.sexo, u.faixa_etaria, u.nivel_surdez, u.sabe_libras
         FROM gestures g
         JOIN users u ON u.id = g.user_id
         ORDER BY u.name, g.name
@@ -219,6 +226,10 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
                 "name": r["user_name"],
                 "is_student": r["is_student"],
                 "has_disability": r["has_disability"],
+                "sexo": r["sexo"],
+                "faixa_etaria": r["faixa_etaria"],
+                "nivel_surdez": r["nivel_surdez"],
+                "sabe_libras": r["sabe_libras"],
             },
             # Usa samples_raw (amostras originais). Se vazio, usa samples (comprimidas).
             "samples": (

@@ -54,6 +54,11 @@ async def run_migrations():
         # Migrações incrementais (para bancos que já tinham schema antigo)
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_student BOOLEAN NOT NULL DEFAULT false",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS has_disability BOOLEAN NOT NULL DEFAULT false",
+        # Dados demográficos (pesquisa) — nullable, preenchidos no cadastro por convite
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sexo TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS faixa_etaria TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS nivel_surdez TEXT",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sabe_libras TEXT",
         "ALTER TABLE gestures ADD COLUMN IF NOT EXISTS samples_raw JSONB NOT NULL DEFAULT '[]'::jsonb",
         "ALTER TABLE gestures ADD COLUMN IF NOT EXISTS samples_temporal JSONB NOT NULL DEFAULT '[]'::jsonb",
 

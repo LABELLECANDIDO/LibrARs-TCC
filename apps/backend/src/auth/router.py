@@ -20,6 +20,11 @@ class RegisterInviteBody(BaseModel):
     name: str | None = None
     is_student: bool = False
     has_disability: bool = False
+    # Demografia (pesquisa)
+    sexo: str | None = None
+    faixa_etaria: str | None = None
+    nivel_surdez: str | None = None
+    sabe_libras: str | None = None
 
 
 class LoginBody(BaseModel):
@@ -90,10 +95,12 @@ async def register_via_invite(body: RegisterInviteBody):
     display_name = (body.name or "").strip() or email.split("@")[0]
 
     user = await db.fetchrow(
-        "INSERT INTO users (email, password_hash, name, is_student, has_disability)"
-        " VALUES ($1, $2, $3, $4, $5)"
+        "INSERT INTO users (email, password_hash, name, is_student, has_disability,"
+        " sexo, faixa_etaria, nivel_surdez, sabe_libras)"
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
         " RETURNING id, email, name, role, is_student, has_disability",
         email, pw_hash, display_name, body.is_student, body.has_disability,
+        body.sexo, body.faixa_etaria, body.nivel_surdez, body.sabe_libras,
     )
 
     await db.execute(
