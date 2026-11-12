@@ -49,6 +49,7 @@ export default function Call() {
   const [inputCode, setInputCode] = useState('')
   const [peerName, setPeerName] = useState('')
   const [callError, setCallError] = useState('')
+  const [socketReady, setSocketReady] = useState(false)
 
   // Tradução do par (overlay no vídeo)
   const [peerGesture, setPeerGesture] = useState<string | null>(null)
@@ -127,6 +128,11 @@ export default function Call() {
   useEffect(() => {
     const socket = io(WS_URL, { autoConnect: true, transports: ['websocket', 'polling'] })
     socketRef.current = socket
+
+    // Estado de conexão — evita criar/entrar em sala antes do socket conectar
+    if (socket.connected) setSocketReady(true)
+    socket.on('connect', () => setSocketReady(true))
+    socket.on('disconnect', () => setSocketReady(false))
 
     // Gesto do par → overlay + TTS + log
     socket.on('peer-gesture', (d: { gesture: string; confidence: number }) => {
@@ -319,8 +325,12 @@ export default function Call() {
       {/* ── IDLE ── */}
       {status === 'idle' && (
         <div className="flex flex-col gap-4">
-          <button onClick={createRoom} className="w-full py-3.5 bg-[#2E75B6] text-white rounded-xl font-bold hover:bg-[#1B3A6B] transition-colors">
-            + Criar nova sala
+          <button
+            onClick={createRoom}
+            disabled={!socketReady}
+            className="w-full py-3.5 bg-[#2E75B6] text-white rounded-xl font-bold hover:bg-[#1B3A6B] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {socketReady ? '+ Criar nova sala' : 'Conectando ao servidor…'}
           </button>
           <div className="flex items-center gap-3 text-gray-400 text-sm">
             <div className="flex-1 h-px bg-gray-200" />
@@ -337,7 +347,7 @@ export default function Call() {
             />
             <button
               onClick={joinRoom}
-              disabled={inputCode.length < 4}
+              disabled={inputCode.length < 4 || !socketReady}
               className="px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-700 disabled:opacity-40 transition-colors"
             >
               Entrar
