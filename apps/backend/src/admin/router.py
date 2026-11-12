@@ -10,6 +10,11 @@ class UpdateRoleRequest(BaseModel):
     role: str
 
 
+class ResetRequest(BaseModel):
+    scope: str        # "gestures" | "all"
+    confirm: str      # precisa ser exatamente "ZERAR"
+
+
 # ── Users ─────────────────────────────────────────────────────────────────────
 
 @router.get("/users")
@@ -148,6 +153,40 @@ async def create_reset_link(user_id: str, _: dict = Depends(get_current_admin)):
         "user_name": user["name"],
         "user_email": user["email"],
     }
+
+
+# ── Reset da base (zona de perigo) ────────────────────────────────────────────
+
+@router.post("/reset")
+async def reset_database(request: ResetRequest, admin: dict = Depends(get_current_admin)):
+    """
+    Zera a base para uma nova coleta limpa. Protegido: só admin, e exige confirm="ZERAR".
+      - scope="gestures": apaga apenas os gestos/amostras (mantém todas as contas)
+      - scope="all":      apaga gestos, convites, tokens e TODOS os usuários
+                          exceto o próprio admin que fez a chamada (mantém só o seu login)
+    """
+    if request.confirm != "ZERAR":
+        raise HTTPException(400, "Confirmação inválida. Digite ZERAR para confirmar.")
+
+    gestures_count = await db.fetchval("SELECT COUNT(*) FROM gestures") or 0
+
+    if request.scope == "gestures":
+        await db.execute("DELETE FROM gestures")
+        return {"ok": True, "scope": "gestures", "gestures_deleted": gestures_count, "users_deleted": 0}
+
+    if request.scope == "all":
+        users_count = await db.fetchval(
+            "SELECT COUNT(*) FROM users WHERE id <> $1", admin["user_id"]
+        ) or 0
+        await db.execute_tx([
+            ("DELETE FROM gestures", ()),
+            ("DELETE FROM invite_tokens", ()),
+            ("DELETE FROM reset_tokens", ()),
+            ("DELETE FROM users WHERE id <> $1", (admin["user_id"],)),
+        ])
+        return {"ok": True, "scope": "all", "gestures_deleted": gestures_count, "users_deleted": users_count}
+
+    raise HTTPException(400, "scope deve ser 'gestures' ou 'all'")
 
 
 # ── Exportação dos dados brutos de pesquisa ───────────────────────────────────

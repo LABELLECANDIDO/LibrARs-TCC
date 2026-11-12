@@ -60,3 +60,12 @@ async def execute(sql: str, *args: Any) -> str:
     assert _pool is not None, "DB pool not initialized"
     async with _pool.acquire() as conn:
         return await conn.execute(sql, *args)
+
+
+async def execute_tx(statements: list[tuple[str, tuple]]) -> None:
+    """Executa vários comandos numa única transação (tudo ou nada)."""
+    assert _pool is not None, "DB pool not initialized"
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            for sql, args in statements:
+                await conn.execute(sql, *args)

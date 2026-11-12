@@ -186,5 +186,11 @@ export const api = {
       ),
 
     exportRawDataset: () => req<unknown[]>('/api/admin/export/raw'),
+
+    resetDatabase: (scope: 'gestures' | 'all') =>
+      req<{ ok: boolean; scope: string; gestures_deleted: number; users_deleted: number }>(
+        '/api/admin/reset',
+        { method: 'POST', body: JSON.stringify({ scope, confirm: 'ZERAR' }) }
+      ),
   },
 }

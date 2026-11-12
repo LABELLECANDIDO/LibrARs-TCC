@@ -26,6 +26,10 @@ export default function AdminDashboard() {
   const [actionLoading, setActionLoading] = useState(false)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [resetLink, setResetLink] = useState<string | null>(null)
+  // Zona de perigo — reset da base
+  const [resetScope, setResetScope] = useState<'gestures' | 'all' | null>(null)
+  const [resetConfirmText, setResetConfirmText] = useState('')
+  const [resetResult, setResetResult] = useState<string | null>(null)
 
   if (isAuthenticated && user?.role !== 'admin') {
     return (
@@ -87,6 +91,21 @@ export default function AdminDashboard() {
   const handleRevokeInvite = async (token: string) => {
     try { await api.admin.revokeInvite(token); await loadInvites() }
     catch (e) { setError(e instanceof Error ? e.message : 'Erro revogar') }
+  }
+  const handleResetDatabase = async () => {
+    if (!resetScope || resetConfirmText !== 'ZERAR') return
+    setActionLoading(true); setError('')
+    try {
+      const res = await api.admin.resetDatabase(resetScope)
+      setResetResult(
+        res.scope === 'all'
+          ? `Base zerada: ${res.gestures_deleted} gestos e ${res.users_deleted} usuário(s) removidos. Só o seu login foi mantido.`
+          : `Gestos zerados: ${res.gestures_deleted} removidos. Contas mantidas.`
+      )
+      setResetScope(null); setResetConfirmText('')
+      await loadBase()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao zerar a base') }
+    finally { setActionLoading(false) }
   }
   const handleCreateResetLink = async () => {
     if (!selectedUser) return; setActionLoading(true)
@@ -363,9 +382,70 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+        {/* ── Zona de perigo ── */}
+        <div className="mt-8 bg-white rounded-2xl border-2 border-red-200 overflow-hidden">
+          <div className="bg-red-50 px-5 py-3 border-b border-red-100">
+            <h2 className="font-bold text-red-800 text-sm">⚠️ Zona de perigo</h2>
+            <p className="text-xs text-red-600 mt-0.5">Ações irreversíveis. Use para preparar uma coleta limpa.</p>
+          </div>
+          <div className="p-5 flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => { setResetScope('gestures'); setResetConfirmText('') }}
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+            >
+              Zerar apenas os gestos
+              <span className="block text-xs font-normal text-amber-600 mt-0.5">Mantém todas as contas</span>
+            </button>
+            <button
+              onClick={() => { setResetScope('all'); setResetConfirmText('') }}
+              className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors"
+            >
+              Zerar tudo (manter só meu login)
+              <span className="block text-xs font-normal text-red-500 mt-0.5">Apaga gestos, convites e outros usuários</span>
+            </button>
+          </div>
+        </div>
+
+        {resetResult && (
+          <div className="mt-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-sm flex justify-between">
+            <span>✓ {resetResult}</span>
+            <button onClick={() => setResetResult(null)} className="font-bold ml-3">✕</button>
+          </div>
+        )}
       </div>
 
       {/* Modais */}
+      {resetScope && (
+        <Modal onClose={() => { setResetScope(null); setResetConfirmText('') }}>
+          <h3 className="font-bold text-red-700 mb-1">
+            {resetScope === 'all' ? 'Zerar TUDO' : 'Zerar os gestos'}
+          </h3>
+          <p className="text-sm text-gray-600 mb-3">
+            {resetScope === 'all'
+              ? 'Isso apaga todos os gestos, convites e usuários — exceto o seu login. Não há como desfazer.'
+              : 'Isso apaga todos os gestos e amostras de todos os participantes. As contas são mantidas. Não há como desfazer.'}
+          </p>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">
+            Digite <span className="font-mono font-bold text-red-600">ZERAR</span> para confirmar
+          </label>
+          <input
+            value={resetConfirmText}
+            onChange={e => setResetConfirmText(e.target.value.toUpperCase())}
+            placeholder="ZERAR"
+            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest mb-4 focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+          <div className="flex gap-2">
+            <button onClick={() => { setResetScope(null); setResetConfirmText('') }} className="flex-1 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-200">Cancelar</button>
+            <button
+              onClick={handleResetDatabase}
+              disabled={actionLoading || resetConfirmText !== 'ZERAR'}
+              className="flex-1 py-2.5 bg-red-600 rounded-xl text-sm font-bold text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {actionLoading ? 'Zerando...' : 'Confirmar reset'}
+            </button>
+          </div>
+        </Modal>
+      )}
       {showRoleModal && selectedUser && (
         <Modal onClose={() => setShowRoleModal(false)}>
           <h3 className="font-bold text-gray-900 mb-1">Alterar papel</h3>

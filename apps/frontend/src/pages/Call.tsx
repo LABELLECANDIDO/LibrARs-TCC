@@ -60,6 +60,8 @@ export default function Call() {
 
   // Configurações
   const [ttsEnabled, setTtsEnabled] = useState(true)
+  const ttsEnabledRef = useRef(true)
+  useEffect(() => { ttsEnabledRef.current = ttsEnabled }, [ttsEnabled])
 
   // Log de conversa
   const [log, setLog] = useState<LogEntry[]>([])
@@ -133,7 +135,7 @@ export default function Call() {
       if (peerGestureTimerRef.current) clearTimeout(peerGestureTimerRef.current)
       peerGestureTimerRef.current = setTimeout(() => setPeerGesture(null), 3000)
 
-      if (ttsEnabled) speak(d.gesture)
+      if (ttsEnabledRef.current) speak(d.gesture)
       setLog(prev => [...prev, { id: generateId(), type: 'gesture', text: d.gesture, from: 'peer', timestamp: now() }])
     })
 
@@ -187,7 +189,7 @@ export default function Call() {
       if (peerGestureTimerRef.current) clearTimeout(peerGestureTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ttsEnabled])
+  }, [])
 
   // ── WebRTC helpers ─────────────────────────────────────────────────────────
 
