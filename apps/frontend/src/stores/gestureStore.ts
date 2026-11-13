@@ -10,6 +10,7 @@ interface GestureStore {
   collectiveGestures: GestureEntry[]  // base coletiva (todos os participantes) — só p/ classificação, não persiste
 
   addGesture: (name: string, samples: number[][]) => Promise<GestureEntry>
+  addRecording: (name: string, frames: number[][], handRatio: number) => Promise<void>
   updateGesture: (id: string, updates: Partial<GestureEntry>) => void
   deleteGesture: (id: string) => Promise<void>
   retrySync: (id: string) => Promise<void>
@@ -26,6 +27,8 @@ interface GestureStore {
 function isAuthed(): boolean {
   return !!localStorage.getItem('libras-ar-token')
 }
+
+const APP_VERSION = 'web-item1'
 
 export const useGestureStore = create<GestureStore>()(
   persist(
@@ -85,6 +88,34 @@ export const useGestureStore = create<GestureStore>()(
           }))
           throw new Error('Dado salvo localmente, mas falhou ao enviar ao servidor. Tente novamente.')
         }
+      },
+
+      // ── addRecording (Item 1) ───────────────────────────────────────────────
+      // Cada repetição vira uma gravação no backend (append-only). O backend
+      // devolve sampled+temporal, que guardamos localmente para o classificador
+      // reconhecer o gesto imediatamente, sem recarregar a base coletiva.
+      addRecording: async (name, frames, handRatio) => {
+        const saved = await api.gestures.createRecording(name, {
+          frames,
+          body: null,
+          hand_ratio: handRatio,
+          pose_ratio: 0,
+          source: 'manual',
+          app_version: APP_VERSION,
+        })
+        const now = new Date().toISOString()
+        const entry: GestureEntry = {
+          id: saved.id,
+          name,
+          samples: saved.sampled,
+          temporalVectors: saved.temporal ? [saved.temporal] : undefined,
+          sampleCount: saved.sampled_count,
+          createdAt: saved.created_at || now,
+          updatedAt: saved.created_at || now,
+          isPublic: false,
+          syncStatus: 'synced',
+        }
+        set(state => ({ gestures: [...state.gestures, entry] }))
       },
 
       // ── retrySync — reenvia gestos com erro ─────────────────────────────────

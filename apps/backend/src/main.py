@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from . import database as db
 from .auth.router import router as auth_router
-from .gestures.router import router as gestures_router
+from .gestures.router import router as gestures_router, recordings_router
 from .admin.router import router as admin_router
 from .collection.router import router as collection_router
 from .socket_events import sio
@@ -121,6 +121,40 @@ async def run_migrations():
         "CREATE INDEX IF NOT EXISTS idx_session_metrics_user ON session_metrics(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id)",
 
+        # Item 1 — uma gravação por repetição (antes: 1 por par participante+gesto)
+        """
+        CREATE TABLE IF NOT EXISTS gesture_recordings (
+            id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            gesture_name TEXT        NOT NULL,
+            created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+            frames       JSONB       NOT NULL DEFAULT '[]',
+            body         JSONB,
+            sampled      JSONB       NOT NULL DEFAULT '[]',
+            temporal     JSONB       NOT NULL DEFAULT '[]',
+            hand_ratio   REAL        NOT NULL DEFAULT 0,
+            pose_ratio   REAL        NOT NULL DEFAULT 0,
+            source       TEXT        NOT NULL DEFAULT 'manual',
+            app_version  TEXT
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_recordings_user ON gesture_recordings(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_recordings_name ON gesture_recordings(gesture_name)",
+
+        # Migra cada gesto existente para uma gravação 'manual' (body=null, sem pose).
+        # Idempotente: só insere o que ainda não foi migrado. Não apaga os gestos.
+        """
+        INSERT INTO gesture_recordings
+            (user_id, gesture_name, created_at, frames, sampled, temporal, hand_ratio, pose_ratio, source)
+        SELECT g.user_id, g.name, g.created_at,
+               g.samples_raw, g.samples, g.samples_temporal, 1.0, 0, 'manual'
+        FROM gestures g
+        WHERE NOT EXISTS (
+            SELECT 1 FROM gesture_recordings r
+            WHERE r.user_id = g.user_id AND r.gesture_name = g.name AND r.source = 'manual'
+        )
+        """,
+
         # Conserta defaults de expiração em bancos antigos (convites nasciam já
         # expirados quando a coluna tinha um default incorreto).
         "ALTER TABLE invite_tokens ALTER COLUMN expires_at SET DEFAULT now() + INTERVAL '7 days'",
@@ -196,6 +230,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(gestures_router, prefix="/api/gestures", tags=["gestures"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(collection_router, prefix="/api", tags=["collection"])
+app.include_router(recordings_router, prefix="/api", tags=["recordings"])
 
 
 @app.get("/health", tags=["health"])

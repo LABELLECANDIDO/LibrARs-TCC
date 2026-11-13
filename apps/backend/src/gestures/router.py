@@ -6,9 +6,11 @@ from ..ml.classifier import weighted_knn
 from ..ml.compressor import compress_samples
 from ..ml.quality import filter_outliers
 from ..ml.temporal import extract_temporal_features
-from .schemas import GestureCreate, ClassifyRequest, CompressRequest
+from .schemas import GestureCreate, ClassifyRequest, CompressRequest, RecordingCreate
 
 router = APIRouter()
+# Item 1 — DELETE /api/recordings/{id} (prefixo /api, montado no main)
+recordings_router = APIRouter()
 
 
 def _parse_jsonb(value) -> list:
@@ -52,15 +54,16 @@ async def collective_dataset(_: dict = Depends(get_current_user)):
     """
     CAP_PER_NAME = 120
 
+    # Item 1: a base coletiva agora vem das gravações (uma por repetição).
     rows = await db.fetch(
-        "SELECT name, samples, samples_temporal FROM gestures ORDER BY updated_at DESC"
+        "SELECT gesture_name, sampled, temporal FROM gesture_recordings ORDER BY created_at DESC"
     )
 
     agg: dict[str, dict] = {}
     for r in rows:
-        name = r["name"]
-        samples = _parse_jsonb(r["samples"])
-        temporal = _parse_jsonb(r.get("samples_temporal") or [])
+        name = r["gesture_name"]
+        samples = _parse_jsonb(r["sampled"])
+        temporal = _parse_jsonb(r["temporal"])
 
         bucket = agg.setdefault(name, {"samples": [], "temporal_vectors": []})
         if len(bucket["samples"]) < CAP_PER_NAME:
@@ -171,3 +174,110 @@ async def compress_gesture_samples(
         "original_count": len(body.samples),
         "compressed_count": len(compressed),
     }
+
+
+# ── Item 1: gravações (uma por repetição) ─────────────────────────────────────
+
+@router.post("/{name}/recordings", status_code=201)
+async def create_recording(
+    name: str,
+    body: RecordingCreate,
+    current_user: dict = Depends(get_current_user),
+):
+    """Cria uma gravação. Nunca sobrescreve as anteriores (append-only)."""
+    gesture_name = name.strip().upper()
+    if not gesture_name:
+        raise HTTPException(400, "Nome do gesto inválido")
+
+    clean, _ = filter_outliers(body.frames)
+    sampled = compress_samples(clean, n_clusters=20)
+    temporal = extract_temporal_features(body.frames)
+
+    row = await db.fetchrow(
+        """
+        INSERT INTO gesture_recordings
+            (user_id, gesture_name, frames, body, sampled, temporal,
+             hand_ratio, pose_ratio, source, app_version)
+        VALUES ($1, $2, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8, $9, $10)
+        RETURNING id, created_at
+        """,
+        current_user["user_id"], gesture_name,
+        body.frames, body.body, sampled, temporal,
+        body.hand_ratio, body.pose_ratio, body.source, body.app_version,
+    )
+    return {
+        "id": str(row["id"]),
+        "gesture_name": gesture_name,
+        "created_at": row["created_at"].isoformat(),
+        "sampled_count": len(sampled),
+        "frame_count": len(body.frames),
+        # devolvidos para o classificador local reconhecer o gesto imediatamente
+        "sampled": sampled,
+        "temporal": temporal,
+    }
+
+
+@router.get("/my-recordings")
+async def my_recordings(current_user: dict = Depends(get_current_user)):
+    """Todas as gravações do participante, para a Biblioteca agrupar por gesto."""
+    rows = await db.fetch(
+        """
+        SELECT id, gesture_name, created_at, hand_ratio, pose_ratio, source,
+               jsonb_array_length(frames) AS n_frames
+        FROM gesture_recordings
+        WHERE user_id = $1
+        ORDER BY gesture_name ASC, created_at DESC
+        """,
+        current_user["user_id"],
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "gesture_name": r["gesture_name"],
+            "created_at": r["created_at"].isoformat(),
+            "hand_ratio": r["hand_ratio"],
+            "pose_ratio": r["pose_ratio"],
+            "source": r["source"],
+            "n_frames": r["n_frames"],
+        }
+        for r in rows
+    ]
+
+
+@router.get("/{name}/recordings")
+async def list_recordings(name: str, current_user: dict = Depends(get_current_user)):
+    """Lista as gravações do próprio participante para um gesto (para a Biblioteca)."""
+    gesture_name = name.strip().upper()
+    rows = await db.fetch(
+        """
+        SELECT id, created_at, hand_ratio, pose_ratio, source,
+               jsonb_array_length(frames) AS n_frames
+        FROM gesture_recordings
+        WHERE user_id = $1 AND gesture_name = $2
+        ORDER BY created_at DESC
+        """,
+        current_user["user_id"], gesture_name,
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "created_at": r["created_at"].isoformat(),
+            "hand_ratio": r["hand_ratio"],
+            "pose_ratio": r["pose_ratio"],
+            "source": r["source"],
+            "n_frames": r["n_frames"],
+        }
+        for r in rows
+    ]
+
+
+@recordings_router.delete("/recordings/{rec_id}")
+async def delete_recording(rec_id: str, current_user: dict = Depends(get_current_user)):
+    """Apaga uma única gravação, apenas a do próprio participante."""
+    rows = await db.fetch(
+        "DELETE FROM gesture_recordings WHERE id = $1 AND user_id = $2 RETURNING id",
+        rec_id, current_user["user_id"],
+    )
+    if not rows:
+        raise HTTPException(404, "Gravação não encontrada")
+    return {"ok": True}

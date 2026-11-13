@@ -8,7 +8,7 @@ interface AdminUser {
   id: string; email: string; name: string; role: string
   is_student: boolean; has_disability: boolean; created_at: string
 }
-interface Stats { total_users: number; total_gestures: number; total_samples: number }
+interface Stats { total_users: number; total_gestures: number; total_recordings?: number; total_samples: number }
 
 export default function AdminDashboard() {
   const { user, isAuthenticated } = useAuthStore()
@@ -152,11 +152,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           {[
             { label: 'Participantes', value: stats.total_users, color: '#1B3A6B' },
             { label: 'Gestos únicos', value: stats.total_gestures, color: '#2E75B6' },
-            { label: 'Amostras totais', value: stats.total_samples.toLocaleString('pt-BR'), color: '#1E5631' },
+            { label: 'Gravações', value: (stats.total_recordings ?? 0).toLocaleString('pt-BR'), color: '#B45309' },
+            { label: 'Quadros totais', value: stats.total_samples.toLocaleString('pt-BR'), color: '#1E5631' },
           ].map((s, i) => (
             <div key={i} className="bg-white rounded-2xl shadow-sm p-4 md:p-5 border border-gray-100">
               <p className="text-gray-400 text-xs font-medium">{s.label}</p>

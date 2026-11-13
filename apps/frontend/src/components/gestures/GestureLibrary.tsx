@@ -1,9 +1,15 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { useGestureStore } from '@/stores/gestureStore'
+import { api } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 
+interface MyRecording {
+  id: string; gesture_name: string; created_at: string
+  hand_ratio: number; pose_ratio: number; source: string; n_frames: number
+}
+
 export function GestureLibrary() {
-  const { gestures, deleteGesture, retrySync, exportAsJson, importFromJson, pendingSync,
+  const { gestures, exportAsJson, importFromJson, pendingSync,
           loadCollectiveDataset, collectiveGestures, loadFromApi } = useGestureStore()
   const importRef = useRef<HTMLInputElement>(null)
 
@@ -13,6 +19,28 @@ export function GestureLibrary() {
   }, [loadFromApi])
   const [importMsg, setImportMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
   const [loadingCollective, setLoadingCollective] = useState(false)
+
+  // Item 1 — gravações do participante, agrupadas por gesto
+  const [recs, setRecs] = useState<MyRecording[]>([])
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const loadRecs = useCallback(() => {
+    api.gestures.myRecordings().then(setRecs).catch(() => setRecs([]))
+  }, [])
+  useEffect(() => { loadRecs() }, [loadRecs])
+
+  const handleDeleteRecording = async (id: string) => {
+    try {
+      await api.gestures.deleteRecording(id)
+      setRecs(prev => prev.filter(r => r.id !== id))
+    } catch { /* ignora; a lista recarrega no próximo acesso */ }
+  }
+
+  // agrupa por nome de gesto
+  const groups = recs.reduce<Record<string, MyRecording[]>>((acc, r) => {
+    (acc[r.gesture_name] ??= []).push(r)
+    return acc
+  }, {})
+  const groupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b))
 
   const handleLoadCollective = async () => {
     setLoadingCollective(true)
@@ -58,21 +86,14 @@ export function GestureLibrary() {
     e.target.value = ''
   }
 
-  const syncIcon = (status?: string) => {
-    if (status === 'synced') return <span title="Salvo no servidor" className="text-green-500 text-xs">✓</span>
-    if (status === 'syncing') return <span title="Enviando..." className="text-blue-400 text-xs animate-pulse">⟳</span>
-    if (status === 'error') return <span title="Falha ao enviar" className="text-amber-500 text-xs">⚠</span>
-    return null
-  }
-
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-gray-800 text-base">
           Biblioteca
-          {gestures.length > 0 && (
+          {groupNames.length > 0 && (
             <span className="ml-2 text-xs font-normal bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-              {gestures.length} gesto{gestures.length !== 1 ? 's' : ''}
+              {groupNames.length} gesto{groupNames.length !== 1 ? 's' : ''}
             </span>
           )}
         </h2>
@@ -139,59 +160,66 @@ export function GestureLibrary() {
         </div>
       )}
 
-      {/* Meus gestos */}
+      {/* Minhas gravações (Item 1) */}
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Meus gestos</h3>
-        {gestures.length > 0 && <span className="text-xs text-gray-400">{gestures.length}</span>}
+        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Minhas gravações</h3>
+        {groupNames.length > 0 && (
+          <span className="text-xs text-gray-400">{groupNames.length} gesto(s) · {recs.length} gravação(ões)</span>
+        )}
       </div>
 
-      {gestures.length === 0 ? (
+      {groupNames.length === 0 ? (
         <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-lg">
           <p className="text-3xl mb-2">🤲</p>
-          <p className="text-sm">Você ainda não treinou nenhum gesto.</p>
+          <p className="text-sm">Você ainda não gravou nenhum gesto.</p>
           <p className="text-xs mt-1">Grave o primeiro na aba Treinar.</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {gestures.map(g => (
-            <li
-              key={g.id}
-              className={`flex items-center justify-between rounded-lg px-3 py-2.5 border ${
-                g.syncStatus === 'error'
-                  ? 'bg-amber-50 border-amber-200'
-                  : 'bg-gray-50 border-gray-100'
-              }`}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="font-medium text-gray-800 text-sm truncate">{g.name}</p>
-                  {syncIcon(g.syncStatus)}
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {g.sampleCount} amostras · {formatDate(g.createdAt)}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                {g.syncStatus === 'error' && (
-                  <button
-                    onClick={() => retrySync(g.id)}
-                    className="text-xs text-amber-700 hover:text-amber-900 font-semibold bg-amber-100 hover:bg-amber-200 px-2 py-1 rounded-md transition-colors"
-                  >
-                    Reenviar
-                  </button>
-                )}
+          {groupNames.map(nome => {
+            const list = groups[nome]
+            const isOpen = expanded === nome
+            return (
+              <li key={nome} className="rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
                 <button
-                  onClick={() => deleteGesture(g.id)}
-                  className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50"
-                  aria-label={`Excluir gesto ${g.name}`}
+                  onClick={() => setExpanded(isOpen ? null : nome)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-100 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
+                  <span className="font-medium text-gray-800 text-sm">{nome}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">
+                      {list.length} gravação{list.length !== 1 ? 'ões' : ''}
+                    </span>
+                    <span className="text-gray-400 text-xs">{isOpen ? '▲' : '▼'}</span>
+                  </span>
                 </button>
-              </div>
-            </li>
-          ))}
+                {isOpen && (
+                  <ul className="border-t border-gray-100 divide-y divide-gray-100">
+                    {list.map((r, i) => (
+                      <li key={r.id} className="flex items-center justify-between px-3 py-2 bg-white">
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-600">
+                            #{list.length - i} · {r.n_frames} quadros · mão {Math.round(r.hand_ratio * 100)}%
+                            {r.source === 'segmentado' && <span className="ml-1 text-[#2E75B6]">(auto)</span>}
+                          </p>
+                          <p className="text-xs text-gray-400">{formatDate(r.created_at)}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteRecording(r.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-md hover:bg-red-50 shrink-0"
+                          aria-label={`Excluir gravação de ${nome}`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
 

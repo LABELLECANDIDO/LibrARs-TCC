@@ -44,3 +44,13 @@ class ClassifyRequest(BaseModel):
 
 class CompressRequest(BaseModel):
     samples: list[list[float]]
+
+
+class RecordingCreate(BaseModel):
+    """Item 1 — uma gravação (repetição) de um gesto."""
+    frames: list[list[float]]              # quadros brutos: 63 valores da mão por quadro
+    body: list | None = None               # por quadro: pontos da pose + features (item 2); null se sem pose
+    hand_ratio: float = 0.0                # fração de quadros com mão detectada
+    pose_ratio: float = 0.0                # fração de quadros com rosto+ombros detectados
+    source: str = "manual"                 # 'manual' | 'segmentado'
+    app_version: str | None = None

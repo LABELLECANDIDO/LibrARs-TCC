@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { normalizeLandmarks, landmarksToVector } from '@/lib/classifier'
 import { useGestureStore } from '@/stores/gestureStore'
+import { api } from '@/lib/api'
 import type { Landmark } from '@/types'
 import type { Handedness } from '@/hooks/useHandTracking'
 
@@ -13,6 +14,8 @@ interface GestureRecorderProps {
 const MIN_SAMPLES      = 10
 const MAX_SAMPLES      = 150
 const SAMPLE_INTERVAL_MS = 100
+const REP_META         = 5      // Item 1: meta de repetições por gesto por participante
+const HAND_RATIO_MIN   = 0.8    // rejeita gravação com mão detectada em menos de 80% dos quadros
 
 const ALPHABET    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 const COMMON_SIGNS = [
@@ -64,6 +67,8 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
   const [feedback, setFeedback]       = useState<'saved' | 'error' | 'saving' | 'sync-error' | null>(null)
   const [quickTab, setQuickTab]       = useState<'alphabet' | 'signs'>('alphabet')
   const [quality, setQuality]         = useState<RecordingQuality | null>(null)
+  const [repCount, setRepCount]       = useState(0)           // gravações já feitas do gesto atual
+  const [rejectReason, setRejectReason] = useState<string | null>(null)
 
   const samplesRef          = useRef<number[][]>([])
   const lastSampleTimeRef   = useRef(0)
@@ -74,7 +79,18 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
   // Lateralidade dominante durante a gravação
   const handednessCountRef  = useRef<Record<string, number>>({ Left: 0, Right: 0 })
 
-  const addGesture = useGestureStore(s => s.addGesture)
+  const addRecording = useGestureStore(s => s.addRecording)
+
+  // Carrega quantas gravações já existem do gesto selecionado (contador de repetições)
+  useEffect(() => {
+    const n = name.trim().toUpperCase()
+    if (!n) { setRepCount(0); return }
+    let cancelled = false
+    api.gestures.listRecordings(n)
+      .then(recs => { if (!cancelled) setRepCount(recs.length) })
+      .catch(() => { if (!cancelled) setRepCount(0) })
+    return () => { cancelled = true }
+  }, [name])
 
   useEffect(() => {
     if (!isRecording) return
@@ -128,25 +144,39 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
 
   const save = useCallback(async () => {
     const trimmed = name.trim()
-    if (!trimmed || samplesRef.current.length < MIN_SAMPLES) {
-      setFeedback('error')
-      return
+    const frames = samplesRef.current
+    const handRatio = quality?.coverage ?? 0
+
+    // Validações do Item 1 (mostram o motivo da rejeição)
+    if (!trimmed) {
+      setRejectReason('Dê um nome ao gesto antes de salvar.'); setFeedback('error'); return
     }
-    const captured = [...samplesRef.current]
-    setName('')
-    setSampleCount(0)
+    if (frames.length < MIN_SAMPLES) {
+      setRejectReason(`Gravação muito curta (${frames.length} quadros, mínimo ${MIN_SAMPLES}). Grave por mais tempo.`)
+      setFeedback('error'); return
+    }
+    if (handRatio < HAND_RATIO_MIN) {
+      setRejectReason(`Mão detectada em só ${Math.round(handRatio * 100)}% dos quadros (mínimo ${Math.round(HAND_RATIO_MIN * 100)}%). Centralize a mão e regrave.`)
+      setFeedback('error'); return
+    }
+
+    const captured = [...frames]
+    setRejectReason(null)
     samplesRef.current = []
+    setSampleCount(0)
     setQuality(null)
     setFeedback('saving')
     try {
-      await addGesture(trimmed, captured)
+      await addRecording(trimmed, captured, handRatio)
+      setRepCount(c => c + 1)              // conta a repetição
       setFeedback('saved')
-      setTimeout(() => setFeedback(null), 3000)
+      setTimeout(() => setFeedback(null), 2500)
+      // mantém o gesto selecionado (name) para a próxima repetição
     } catch {
       setFeedback('sync-error')
       setTimeout(() => setFeedback(null), 6000)
     }
-  }, [name, addGesture])
+  }, [name, quality, addRecording])
 
   const selectQuick = (label: string) => { if (!isRecording) setName(label) }
 
@@ -230,6 +260,26 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
           aria-label="Nome do gesto a gravar"
         />
       </div>
+
+      {/* Contador de repetições (Item 1) */}
+      {name.trim() && (
+        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <span className="text-sm font-medium text-[#1B3A6B]">
+            Repetições de <strong>{name.trim()}</strong>: {repCount}/{REP_META}
+          </span>
+          <div className="flex gap-1">
+            {Array.from({ length: REP_META }).map((_, i) => (
+              <span
+                key={i}
+                className={`w-2.5 h-2.5 rounded-full ${i < repCount ? 'bg-[#2E75B6]' : 'bg-gray-200'}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {name.trim() && repCount >= REP_META && (
+        <p className="text-xs text-green-700 -mt-2">✓ Meta de {REP_META} repetições atingida. Você pode gravar mais ou passar para outro gesto.</p>
+      )}
 
       {/* Aviso: sem mão */}
       {!isHandDetected && !isRecording && (
@@ -318,7 +368,7 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
       )}
       {feedback === 'saved' && (
         <p className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-center">
-          ✓ Gesto salvo e sincronizado com o banco!
+          ✓ Repetição salva! Grave mais uma ou escolha outro gesto.
         </p>
       )}
       {feedback === 'sync-error' && (
@@ -328,7 +378,7 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
       )}
       {feedback === 'error' && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-center">
-          Mínimo de {MIN_SAMPLES} amostras necessário.
+          {rejectReason ?? `Mínimo de ${MIN_SAMPLES} quadros necessário.`}
         </p>
       )}
 

@@ -49,13 +49,15 @@ async def list_users(_: dict = Depends(get_current_admin)):
 async def get_stats(_: dict = Depends(get_current_admin)):
     row = await db.fetchrow(
         "SELECT (SELECT COUNT(*) FROM users) as users_count,"
-        "       (SELECT COUNT(*) FROM gestures) as gestures_count,"
-        "       (SELECT COALESCE(SUM(sample_count), 0) FROM gestures) as samples_count"
+        "       (SELECT COUNT(DISTINCT gesture_name) FROM gesture_recordings) as gestures_count,"
+        "       (SELECT COUNT(*) FROM gesture_recordings) as recordings_count,"
+        "       (SELECT COALESCE(SUM(jsonb_array_length(frames)), 0) FROM gesture_recordings) as frames_count"
     )
     return {
         "total_users": row["users_count"] or 0,
         "total_gestures": row["gestures_count"] or 0,
-        "total_samples": row["samples_count"] or 0,
+        "total_recordings": row["recordings_count"] or 0,
+        "total_samples": row["frames_count"] or 0,
     }
 
 
@@ -180,7 +182,10 @@ async def reset_database(request: ResetRequest, admin: dict = Depends(get_curren
     gestures_count = await db.fetchval("SELECT COUNT(*) FROM gestures") or 0
 
     if request.scope == "gestures":
-        await db.execute("DELETE FROM gestures")
+        await db.execute_tx([
+            ("DELETE FROM gesture_recordings", ()),
+            ("DELETE FROM gestures", ()),
+        ])
         return {"ok": True, "scope": "gestures", "gestures_deleted": gestures_count, "users_deleted": 0}
 
     if request.scope == "all":
@@ -188,6 +193,7 @@ async def reset_database(request: ResetRequest, admin: dict = Depends(get_curren
             "SELECT COUNT(*) FROM users WHERE id <> $1", admin["user_id"]
         ) or 0
         await db.execute_tx([
+            ("DELETE FROM gesture_recordings", ()),
             ("DELETE FROM gestures", ()),
             ("DELETE FROM session_metrics", ()),
             ("DELETE FROM feedback", ()),
@@ -210,22 +216,29 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
     Uso: download para treinamento de modelos de ML.
     """
     rows = await db.fetch("""
-        SELECT g.id, g.name, g.samples, g.samples_raw, g.sample_count, g.created_at,
+        SELECT r.id, r.gesture_name, r.frames, r.body, r.sampled, r.temporal,
+               r.hand_ratio, r.pose_ratio, r.source, r.app_version, r.created_at,
                u.id          AS user_id,
                u.name        AS user_name,
-               u.is_student,
-               u.has_disability,
+               u.is_student, u.has_disability,
                u.sexo, u.faixa_etaria, u.nivel_surdez, u.sabe_libras
-        FROM gestures g
-        JOIN users u ON u.id = g.user_id
-        ORDER BY u.name, g.name
+        FROM gesture_recordings r
+        JOIN users u ON u.id = r.user_id
+        ORDER BY u.name, r.gesture_name, r.created_at
     """)
+
+    def _arr(v):
+        return v if isinstance(v, list) else []
+
     return [
         {
-            "gesture_id": str(r["id"]),
-            "gesture_name": r["name"],
-            "sample_count": r["sample_count"],
+            "recording_id": str(r["id"]),
+            "gesture_name": r["gesture_name"],
             "collected_at": r["created_at"].isoformat(),
+            "source": r["source"],
+            "app_version": r["app_version"],
+            "hand_ratio": r["hand_ratio"],
+            "pose_ratio": r["pose_ratio"],
             "participant": {
                 "id": str(r["user_id"]),
                 "name": r["user_name"],
@@ -236,13 +249,11 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
                 "nivel_surdez": r["nivel_surdez"],
                 "sabe_libras": r["sabe_libras"],
             },
-            # Usa samples_raw (amostras originais). Se vazio, usa samples (comprimidas).
-            "samples": (
-                r["samples_raw"] if isinstance(r["samples_raw"], list) and len(r["samples_raw"]) > 0
-                else r["samples"] if isinstance(r["samples"], list)
-                else []
-            ),
-            "samples_raw_count": len(r["samples_raw"]) if isinstance(r["samples_raw"], list) else 0,
+            # frames brutos (63 valores da mão por quadro); body = pose+features (item 2) ou null
+            "frames": _arr(r["frames"]),
+            "frame_count": len(_arr(r["frames"])),
+            "body": r["body"] if isinstance(r["body"], list) else None,
+            "temporal": _arr(r["temporal"]),
         }
         for r in rows
     ]

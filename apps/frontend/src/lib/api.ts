@@ -50,6 +50,7 @@ export interface AuthResponse {
 export interface AdminStats {
   total_users: number
   total_gestures: number
+  total_recordings?: number
   total_samples: number
 }
 
@@ -157,6 +158,33 @@ export const api = {
 
     collectiveDataset: () =>
       req<Array<{ name: string; samples: number[][]; temporal_vectors?: number[][] }>>('/api/gestures/dataset'),
+
+    // Item 1 — gravações (uma por repetição)
+    createRecording: (name: string, data: {
+      frames: number[][]
+      body?: number[][] | null
+      hand_ratio: number
+      pose_ratio?: number
+      source?: 'manual' | 'segmentado'
+      app_version?: string
+    }) =>
+      req<{ id: string; gesture_name: string; created_at: string; sampled_count: number; frame_count: number; sampled: number[][]; temporal: number[] }>(
+        `/api/gestures/${encodeURIComponent(name)}/recordings`,
+        { method: 'POST', body: JSON.stringify(data) }
+      ),
+
+    listRecordings: (name: string) =>
+      req<Array<{ id: string; created_at: string; hand_ratio: number; pose_ratio: number; source: string; n_frames: number }>>(
+        `/api/gestures/${encodeURIComponent(name)}/recordings`
+      ),
+
+    myRecordings: () =>
+      req<Array<{ id: string; gesture_name: string; created_at: string; hand_ratio: number; pose_ratio: number; source: string; n_frames: number }>>(
+        '/api/gestures/my-recordings'
+      ),
+
+    deleteRecording: (id: string) =>
+      req<{ ok: boolean }>(`/api/recordings/${id}`, { method: 'DELETE' }),
   },
 
   admin: {
