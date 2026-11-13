@@ -9,7 +9,7 @@ interface MyRecording {
 }
 
 export function GestureLibrary() {
-  const { gestures, exportAsJson, importFromJson, pendingSync,
+  const { gestures, exportAsJson, importFromJson,
           loadCollectiveDataset, collectiveGestures, loadFromApi } = useGestureStore()
   const importRef = useRef<HTMLInputElement>(null)
 
@@ -150,13 +150,6 @@ export function GestureLibrary() {
             : 'bg-red-50 border-red-200 text-red-700'
         }`}>
           {importMsg.text}
-        </div>
-      )}
-
-      {/* Aviso de sync pendente */}
-      {pendingSync && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-800">
-          <strong>⚠ Dados não sincronizados com o servidor.</strong> Clique em "Reenviar" nos gestos marcados abaixo assim que a conexão for restabelecida.
         </div>
       )}
 
