@@ -5,7 +5,11 @@
 
 services:
   # -- Backend API + WebSocket --------------------------------------------------
-  backend:
+  #  O nome do servico precisa ser UNICO: a rede "coolify" e compartilhada com
+  #  outros projetos da VPS, e um nome generico como "backend" faz o DNS do
+  #  Docker devolver os backends de todos eles (o nginx passa a revezar entre
+  #  sistemas diferentes). O nginx.conf do frontend aponta para este nome.
+  librars-api:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile
@@ -30,7 +34,7 @@ services:
     expose:
       - "80"
     depends_on:
-      - backend
+      - librars-api
     networks:
       - default
       - coolify
