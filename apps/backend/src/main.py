@@ -155,6 +155,35 @@ async def run_migrations():
         )
         """,
 
+        # Item 4 — consentimento (data/hora do aceite e versão do termo)
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_version TEXT",
+
+        # Item 4 — uma linha por tentativa no modo avaliação da tela Traduzir
+        """
+        CREATE TABLE IF NOT EXISTS evaluation_attempts (
+            id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id        UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            recorded_by    UUID        REFERENCES users(id) ON DELETE SET NULL,
+            session_id     TEXT        NOT NULL,
+            expected       TEXT        NOT NULL,
+            predicted      TEXT,
+            confidence     REAL,
+            latency_ms     INT,
+            segment_frames INT,
+            pose_ok_ratio  REAL,
+            config         TEXT        NOT NULL DEFAULT 'A',
+            w              REAL,
+            app_version    TEXT,
+            created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_attempts_session ON evaluation_attempts(session_id)",
+        "CREATE INDEX IF NOT EXISTS idx_attempts_user ON evaluation_attempts(user_id)",
+
+        # Item 4 — feedback pode ser associado a uma sessão de validação
+        "ALTER TABLE feedback ADD COLUMN IF NOT EXISTS session_id TEXT",
+
         # Conserta defaults de expiração em bancos antigos (convites nasciam já
         # expirados quando a coluna tinha um default incorreto).
         "ALTER TABLE invite_tokens ALTER COLUMN expires_at SET DEFAULT now() + INTERVAL '7 days'",

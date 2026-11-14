@@ -9,6 +9,7 @@ import Call from '@/pages/Call'
 import AdminDashboard from '@/pages/AdminDashboard'
 import InviteRegister from '@/pages/InviteRegister'
 import ResetPassword from '@/pages/ResetPassword'
+import Termo from '@/pages/Termo'
 import { useAuthStore } from '@/stores/authStore'
 import './index.css'
 
@@ -257,6 +258,7 @@ function AppContent() {
           <Route path="/"           element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Landing />} />
           <Route path="/convite/:token" element={<InviteRegister />} />
           <Route path="/reset/:token"   element={<ResetPassword />} />
+          <Route path="/termo"          element={<Termo />} />
           <Route path="/dashboard"  element={isAuthenticated ? <Dashboard />      : <Navigate to="/" replace />} />
           <Route path="/traduzir"   element={isAuthenticated ? <Translate />      : <Navigate to="/" replace />} />
           <Route path="/treinar"    element={isAuthenticated ? <Train />          : <Navigate to="/" replace />} />

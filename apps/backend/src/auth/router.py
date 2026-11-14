@@ -25,6 +25,13 @@ class RegisterInviteBody(BaseModel):
     faixa_etaria: str | None = None
     nivel_surdez: str | None = None
     sabe_libras: str | None = None
+    # Consentimento (Item 4): aceite do termo no cadastro
+    consent: bool = False
+    consent_version: str | None = None
+
+
+class ConsentBody(BaseModel):
+    version: str
 
 
 class LoginBody(BaseModel):
@@ -45,6 +52,9 @@ def _user_response(user: dict) -> dict:
         "role": user["role"],
         "is_student": user.get("is_student", False),
         "has_disability": user.get("has_disability", False),
+        # Consentimento: data/hora do aceite e versão do termo (None = ainda não aceitou)
+        "consent_at": user["consent_at"].isoformat() if user.get("consent_at") else None,
+        "consent_version": user.get("consent_version"),
     }
 
 
@@ -96,11 +106,14 @@ async def register_via_invite(body: RegisterInviteBody):
 
     user = await db.fetchrow(
         "INSERT INTO users (email, password_hash, name, is_student, has_disability,"
-        " sexo, faixa_etaria, nivel_surdez, sabe_libras)"
-        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"
-        " RETURNING id, email, name, role, is_student, has_disability",
+        " sexo, faixa_etaria, nivel_surdez, sabe_libras, consent_at, consent_version)"
+        " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,"
+        "         CASE WHEN $10::boolean THEN now() ELSE NULL END,"
+        "         CASE WHEN $10::boolean THEN $11::text ELSE NULL END)"
+        " RETURNING id, email, name, role, is_student, has_disability, consent_at, consent_version",
         email, pw_hash, display_name, body.is_student, body.has_disability,
         body.sexo, body.faixa_etaria, body.nivel_surdez, body.sabe_libras,
+        body.consent, body.consent_version,
     )
 
     await db.execute(
@@ -116,7 +129,8 @@ async def login(body: LoginBody):
     email = body.email.lower().strip()
 
     user = await db.fetchrow(
-        "SELECT id, email, name, password_hash, role FROM users WHERE email = $1", email
+        "SELECT id, email, name, password_hash, role, is_student, has_disability,"
+        " consent_at, consent_version FROM users WHERE email = $1", email
     )
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Email ou senha incorretos")
@@ -170,8 +184,25 @@ async def validate_reset(token: str):
 @router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
     user = await db.fetchrow(
-        "SELECT id, email, name, role, is_student, has_disability FROM users WHERE id = $1",
+        "SELECT id, email, name, role, is_student, has_disability, consent_at, consent_version"
+        " FROM users WHERE id = $1",
         current_user["user_id"],
+    )
+    if not user:
+        raise HTTPException(404, "Usuário não encontrado")
+    return _user_response(user)
+
+
+@router.post("/consent")
+async def give_consent(body: ConsentBody, current_user: dict = Depends(get_current_user)):
+    """Registra o aceite do termo de consentimento: guarda a data/hora e a versão do termo."""
+    version = body.version.strip()
+    if not version:
+        raise HTTPException(400, "Versão do termo não informada")
+    user = await db.fetchrow(
+        "UPDATE users SET consent_at = now(), consent_version = $1 WHERE id = $2"
+        " RETURNING id, email, name, role, is_student, has_disability, consent_at, consent_version",
+        version, current_user["user_id"],
     )
     if not user:
         raise HTTPException(404, "Usuário não encontrado")

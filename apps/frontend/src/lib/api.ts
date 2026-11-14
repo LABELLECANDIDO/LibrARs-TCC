@@ -30,6 +30,9 @@ export interface User {
   email: string
   name: string
   role: 'user' | 'admin'
+  // Consentimento (Item 4): data/hora do aceite e versão do termo; null = não aceitou
+  consent_at?: string | null
+  consent_version?: string | null
 }
 
 export interface ApiGesture {
@@ -40,6 +43,20 @@ export interface ApiGesture {
   sample_count: number
   created_at: string
   updated_at?: string
+}
+
+export interface AttemptPayload {
+  session_id: string
+  expected: string
+  predicted: string | null        // null = rejeitada (sem reconhecimento no tempo limite)
+  confidence: number | null
+  latency_ms: number | null
+  segment_frames?: number | null  // preenchido a partir do item 3 (segmentação)
+  pose_ok_ratio?: number | null   // preenchido a partir do item 2 (pose)
+  config: string                  // A, B ou C
+  w?: number | null
+  app_version: string
+  user_id?: string | null         // participante avaliado, quando um admin opera
 }
 
 export interface AuthResponse {
@@ -113,6 +130,7 @@ export const api = {
         email: string; password: string; name?: string
         is_student: boolean; has_disability: boolean
         sexo: string; faixa_etaria: string; nivel_surdez: string; sabe_libras: string
+        consent: boolean; consent_version: string
       }
     ) =>
       req<AuthResponse>('/api/auth/register-invite', {
@@ -127,6 +145,10 @@ export const api = {
       }),
 
     me: () => req<User>('/api/auth/me'),
+
+    // Registra o aceite do termo de consentimento (data/hora + versão)
+    consent: (version: string) =>
+      req<User>('/api/auth/consent', { method: 'POST', body: JSON.stringify({ version }) }),
 
     validateInvite: (token: string) =>
       req<{ valid: boolean }>(`/api/auth/validate-invite/${token}`),
@@ -246,6 +268,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+
+    // Item 4 — uma tentativa do modo avaliação (gesto pedido × reconhecido)
+    logAttempt: (data: AttemptPayload) =>
+      req<{ ok: boolean; id: string }>('/api/metrics/attempt', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   feedback: {
@@ -254,6 +283,8 @@ export const api = {
       easy_to_use: number | null
       would_use_again: number | null
       comment?: string | null
+      session_id?: string | null   // sessão de validação (modo avaliação)
+      user_id?: string | null      // participante avaliado, quando um admin opera
     }) =>
       req<{ ok: boolean; id: string }>('/api/feedback', {
         method: 'POST',

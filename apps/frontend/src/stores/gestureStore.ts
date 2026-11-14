@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { GestureEntry } from '@/types'
 import { generateId } from '@/lib/utils'
 import { api } from '@/lib/api'
+import { APP_VERSION } from '@/lib/consent'
 
 interface GestureStore {
   gestures: GestureEntry[]
@@ -27,8 +28,6 @@ interface GestureStore {
 function isAuthed(): boolean {
   return !!localStorage.getItem('libras-ar-token')
 }
-
-const APP_VERSION = 'web-item1'
 
 export const useGestureStore = create<GestureStore>()(
   persist(

@@ -197,6 +197,7 @@ async def reset_database(request: ResetRequest, admin: dict = Depends(get_curren
             ("DELETE FROM gestures", ()),
             ("DELETE FROM session_metrics", ()),
             ("DELETE FROM feedback", ()),
+            ("DELETE FROM evaluation_attempts", ()),
             ("DELETE FROM invite_tokens", ()),
             ("DELETE FROM reset_tokens", ()),
             ("DELETE FROM users WHERE id <> $1", (admin["user_id"],)),
@@ -221,7 +222,8 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
                u.id          AS user_id,
                u.name        AS user_name,
                u.is_student, u.has_disability,
-               u.sexo, u.faixa_etaria, u.nivel_surdez, u.sabe_libras
+               u.sexo, u.faixa_etaria, u.nivel_surdez, u.sabe_libras,
+               u.consent_at, u.consent_version
         FROM gesture_recordings r
         JOIN users u ON u.id = r.user_id
         ORDER BY u.name, r.gesture_name, r.created_at
@@ -248,6 +250,8 @@ async def export_raw_data(_: dict = Depends(get_current_admin)):
                 "faixa_etaria": r["faixa_etaria"],
                 "nivel_surdez": r["nivel_surdez"],
                 "sabe_libras": r["sabe_libras"],
+                "consent_at": r["consent_at"].isoformat() if r["consent_at"] else None,
+                "consent_version": r["consent_version"],
             },
             # frames brutos (63 valores da mão por quadro); body = pose+features (item 2) ou null
             "frames": _arr(r["frames"]),
@@ -273,10 +277,44 @@ async def get_research_data(_: dict = Depends(get_current_admin)):
     """)
     feedback = await db.fetch("""
         SELECT f.recognized_well, f.easy_to_use, f.would_use_again, f.comment, f.created_at,
+               f.session_id, f.user_id,
                u.nivel_surdez, u.sabe_libras, u.sexo, u.faixa_etaria
         FROM feedback f JOIN users u ON u.id = f.user_id
         ORDER BY f.created_at DESC
     """)
+    # Item 4: uma linha por tentativa do modo avaliação (gesto pedido × reconhecido)
+    attempts = await db.fetch("""
+        SELECT a.user_id, a.session_id, a.expected, a.predicted, a.confidence, a.latency_ms,
+               a.segment_frames, a.pose_ok_ratio, a.config, a.w, a.app_version, a.created_at,
+               u.nivel_surdez, u.sabe_libras, u.sexo, u.faixa_etaria
+        FROM evaluation_attempts a JOIN users u ON u.id = a.user_id
+        ORDER BY a.created_at ASC
+    """)
+
+    def _attempt(r):
+        return {
+            "participant_id": str(r["user_id"]),
+            "session_id": r["session_id"],
+            "expected": r["expected"],
+            "predicted": r["predicted"],
+            "outcome": (
+                "rejeitado" if r["predicted"] is None
+                else "acerto" if r["predicted"] == r["expected"]
+                else "erro"
+            ),
+            "confidence": r["confidence"],
+            "latency_ms": r["latency_ms"],
+            "segment_frames": r["segment_frames"],
+            "pose_ok_ratio": r["pose_ok_ratio"],
+            "config": r["config"],
+            "w": r["w"],
+            "app_version": r["app_version"],
+            "created_at": r["created_at"].isoformat(),
+            "nivel_surdez": r["nivel_surdez"],
+            "sabe_libras": r["sabe_libras"],
+            "sexo": r["sexo"],
+            "faixa_etaria": r["faixa_etaria"],
+        }
 
     def _metric(r):
         return {
@@ -298,6 +336,8 @@ async def get_research_data(_: dict = Depends(get_current_admin)):
             "would_use_again": r["would_use_again"],
             "comment": r["comment"],
             "created_at": r["created_at"].isoformat(),
+            "session_id": r["session_id"],
+            "participant_id": str(r["user_id"]),
             "nivel_surdez": r["nivel_surdez"],
             "sabe_libras": r["sabe_libras"],
             "sexo": r["sexo"],
@@ -307,8 +347,10 @@ async def get_research_data(_: dict = Depends(get_current_admin)):
     return {
         "total_sessions": len(metrics),
         "total_feedback": len(feedback),
+        "total_attempts": len(attempts),
         "metrics": [_metric(r) for r in metrics],
         "feedback": [_fb(r) for r in feedback],
+        "attempts": [_attempt(r) for r in attempts],
     }
 
 

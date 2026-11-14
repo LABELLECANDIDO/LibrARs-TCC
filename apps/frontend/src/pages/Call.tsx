@@ -10,6 +10,7 @@ import { useGestureStore } from '@/stores/gestureStore'
 import type { Landmark } from '@/types'
 import { generateId } from '@/lib/utils'
 import { api } from '@/lib/api'
+import { FeedbackModal } from '@/components/feedback/FeedbackModal'
 
 const WS_URL = (import.meta.env.VITE_WS_URL as string | undefined) ?? ''
 
@@ -77,11 +78,6 @@ export default function Call() {
 
   // Feedback ao encerrar
   const [showFeedback, setShowFeedback] = useState(false)
-  const [fbRecognized, setFbRecognized] = useState<number | null>(null)
-  const [fbEasy, setFbEasy]             = useState<number | null>(null)
-  const [fbAgain, setFbAgain]           = useState<number | null>(null)
-  const [fbComment, setFbComment]       = useState('')
-  const [fbSubmitting, setFbSubmitting] = useState(false)
 
   // Refs WebRTC / Socket
   const socketRef = useRef<Socket | null>(null)
@@ -331,25 +327,6 @@ export default function Call() {
     socketRef.current?.connect()
   }
 
-  async function submitFeedback() {
-    setFbSubmitting(true)
-    try {
-      await api.feedback.submit({
-        recognized_well: fbRecognized,
-        easy_to_use: fbEasy,
-        would_use_again: fbAgain,
-        comment: fbComment.trim() || null,
-      })
-    } catch { /* best-effort */ }
-    closeFeedback()
-  }
-
-  function closeFeedback() {
-    setShowFeedback(false)
-    setFbRecognized(null); setFbEasy(null); setFbAgain(null)
-    setFbComment(''); setFbSubmitting(false)
-  }
-
   // ── Guard ──────────────────────────────────────────────────────────────────
 
   if (!isAuthenticated) {
@@ -571,60 +548,7 @@ export default function Call() {
       )}
 
       {/* ── Feedback acessível ao encerrar a sessão ── */}
-      {showFeedback && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in-scale flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
-            <div className="text-center">
-              <h3 className="text-lg font-bold text-gray-900">Como foi a experiência?</h3>
-              <p className="text-sm text-gray-500">Toque na carinha que combina com o que você achou.</p>
-            </div>
-
-            {[
-              { label: 'O app reconheceu seus sinais?', value: fbRecognized, set: setFbRecognized, opts: [{ v: 1, e: '😟' }, { v: 2, e: '😐' }, { v: 3, e: '🙂' }] },
-              { label: 'Foi fácil de usar?', value: fbEasy, set: setFbEasy, opts: [{ v: 1, e: '😟' }, { v: 2, e: '😐' }, { v: 3, e: '🙂' }] },
-              { label: 'Você usaria de novo?', value: fbAgain, set: setFbAgain, opts: [{ v: 0, e: '👎' }, { v: 1, e: '👍' }] },
-            ].map((q, i) => (
-              <div key={i}>
-                <p className="text-sm font-semibold text-gray-700 mb-2 text-center">{q.label}</p>
-                <div className="flex justify-center gap-3">
-                  {q.opts.map(o => (
-                    <button
-                      key={o.v}
-                      type="button"
-                      onClick={() => q.set(o.v)}
-                      aria-label={`${q.label} — opção ${o.v}`}
-                      className={`w-16 h-16 rounded-2xl text-3xl flex items-center justify-center border-2 transition-colors ${
-                        q.value === o.v ? 'border-[#2E75B6] bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {o.e}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            <textarea
-              value={fbComment}
-              onChange={e => setFbComment(e.target.value)}
-              rows={2}
-              placeholder="Quer comentar algo? (opcional)"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#2E75B6]"
-            />
-
-            <div className="flex gap-2">
-              <button onClick={closeFeedback} className="flex-1 py-2.5 bg-gray-100 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-200">Pular</button>
-              <button
-                onClick={submitFeedback}
-                disabled={fbSubmitting}
-                className="flex-1 py-2.5 bg-[#2E75B6] rounded-xl text-sm font-bold text-white hover:bg-[#1B3A6B] disabled:opacity-60"
-              >
-                {fbSubmitting ? 'Enviando...' : 'Enviar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <FeedbackModal open={showFeedback} onClose={() => setShowFeedback(false)} />
     </div>
   )
 }

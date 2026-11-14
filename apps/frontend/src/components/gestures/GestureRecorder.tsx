@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { normalizeLandmarks, landmarksToVector } from '@/lib/classifier'
 import { useGestureStore } from '@/stores/gestureStore'
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
+import { TERMO_VERSAO, CONSENT_LABEL } from '@/lib/consent'
 import type { Landmark } from '@/types'
 import type { Handedness } from '@/hooks/useHandTracking'
 
@@ -80,6 +82,38 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
   const handednessCountRef  = useRef<Record<string, number>>({ Left: 0, Right: 0 })
 
   const addRecording = useGestureStore(s => s.addRecording)
+
+  // ── Consentimento (Item 4) ──────────────────────────────────────────────────
+  const { user, token, setAuth } = useAuthStore()
+  const hasConsent = !!user?.consent_at
+  const [consentChecked, setConsentChecked] = useState(false)
+  const [consentSaving, setConsentSaving]   = useState(false)
+  const [consentError, setConsentError]     = useState<string | null>(null)
+
+  // Atualiza o status do aceite pelo servidor (a sessão local pode ser antiga
+  // ou o aceite pode ter sido dado em outro aparelho)
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    api.auth.me()
+      .then(me => { if (!cancelled) setAuth(token, me) })
+      .catch(() => { /* mantém o que está salvo localmente */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
+  const acceptConsent = useCallback(async () => {
+    if (!token || !consentChecked) return
+    setConsentSaving(true); setConsentError(null)
+    try {
+      const me = await api.auth.consent(TERMO_VERSAO)
+      setAuth(token, me)
+    } catch {
+      setConsentError('Não foi possível registrar o aceite. Verifique a conexão e tente de novo.')
+    } finally {
+      setConsentSaving(false)
+    }
+  }, [token, consentChecked, setAuth])
 
   // Carrega quantas gravações já existem do gesto selecionado (contador de repetições)
   useEffect(() => {
@@ -181,8 +215,9 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
   const selectQuick = (label: string) => { if (!isRecording) setName(label) }
 
   const progress = Math.min((sampleCount / 40) * 100, 100)
-  const canRecord = name.trim().length > 0 && isHandDetected && !isRecording
-  const canSave   = !isRecording && sampleCount >= MIN_SAMPLES && feedback !== 'saving'
+  // Item 4: sem aceite do termo, a gravação fica bloqueada (o servidor também recusa)
+  const canRecord = hasConsent && name.trim().length > 0 && isHandDetected && !isRecording
+  const canSave   = hasConsent && !isRecording && sampleCount >= MIN_SAMPLES && feedback !== 'saving'
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
@@ -279,6 +314,35 @@ export function GestureRecorder({ landmarks, isHandDetected, handedness }: Gestu
       )}
       {name.trim() && repCount >= REP_META && (
         <p className="text-xs text-green-700 -mt-2">✓ Meta de {REP_META} repetições atingida. Você pode gravar mais ou passar para outro gesto.</p>
+      )}
+
+      {/* Consentimento (Item 4): bloqueia a gravação até o aceite */}
+      {!hasConsent && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col gap-3">
+          <p className="text-sm font-semibold text-[#1B3A6B]">Antes de gravar, precisamos do seu aceite</p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentChecked}
+              onChange={e => setConsentChecked(e.target.checked)}
+              className="mt-0.5 w-5 h-5 shrink-0 accent-[#2E75B6]"
+            />
+            <span className="text-sm text-gray-700">
+              {CONSENT_LABEL}.{' '}
+              <a href="/termo" target="_blank" rel="noopener noreferrer" className="text-[#2E75B6] underline font-medium">
+                Ler o termo
+              </a>
+            </span>
+          </label>
+          {consentError && <p className="text-xs text-red-600">{consentError}</p>}
+          <button
+            onClick={acceptConsent}
+            disabled={!consentChecked || consentSaving}
+            className="bg-[#2E75B6] text-white rounded-lg py-2 text-sm font-semibold hover:bg-[#1B3A6B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {consentSaving ? 'Registrando…' : 'Confirmar e liberar a gravação'}
+          </button>
+        </div>
       )}
 
       {/* Aviso: sem mão */}

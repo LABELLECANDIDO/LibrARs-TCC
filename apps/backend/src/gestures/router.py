@@ -189,6 +189,15 @@ async def create_recording(
     if not gesture_name:
         raise HTTPException(400, "Nome do gesto inválido")
 
+    # Item 4: sem aceite do termo de consentimento, nenhuma gravação é guardada.
+    consent_at = await db.fetchval(
+        "SELECT consent_at FROM users WHERE id = $1", current_user["user_id"]
+    )
+    if consent_at is None:
+        raise HTTPException(
+            403, "É preciso aceitar o termo de consentimento antes de gravar."
+        )
+
     clean, _ = filter_outliers(body.frames)
     sampled = compress_samples(clean, n_clusters=20)
     temporal = extract_temporal_features(body.frames)

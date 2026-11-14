@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useGestureStore } from '@/stores/gestureStore'
+import { TERMO_VERSAO, CONSENT_LABEL } from '@/lib/consent'
 
 export default function InviteRegister() {
   const { token } = useParams<{ token: string }>()
@@ -20,6 +21,7 @@ export default function InviteRegister() {
   const [faixaEtaria, setFaixaEtaria] = useState('')
   const [nivelSurdez, setNivelSurdez] = useState('')
   const [sabeLibras, setSabeLibras] = useState('')
+  const [consent, setConsent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,6 +43,10 @@ export default function InviteRegister() {
       setError('Por favor, responda todas as perguntas do perfil.')
       return
     }
+    if (!consent) {
+      setError('Para participar, é preciso aceitar o termo de consentimento.')
+      return
+    }
     setError('')
     setLoading(true)
     try {
@@ -48,6 +54,7 @@ export default function InviteRegister() {
         email, password, name,
         is_student: isStudent, has_disability: hasDisability,
         sexo, faixa_etaria: faixaEtaria, nivel_surdez: nivelSurdez, sabe_libras: sabeLibras,
+        consent: true, consent_version: TERMO_VERSAO,
       })
       setAuth(res.token, res.user)
       loadFromApi().catch(() => null)
@@ -234,6 +241,28 @@ export default function InviteRegister() {
               </select>
             </div>
           </div>
+
+          {/* Consentimento (obrigatório) */}
+          <label className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-lg px-3 py-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={e => setConsent(e.target.checked)}
+              className="mt-0.5 w-5 h-5 shrink-0 accent-[#2E75B6]"
+            />
+            <span className="text-sm text-gray-700">
+              {CONSENT_LABEL}.{' '}
+              <a
+                href="/termo"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#2E75B6] underline font-medium"
+                onClick={e => e.stopPropagation()}
+              >
+                Ler o termo
+              </a>
+            </span>
+          </label>
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">{error}</div>

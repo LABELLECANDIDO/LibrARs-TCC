@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { CameraFeed } from '@/components/camera/CameraFeed'
 import { ARDisplay } from '@/components/camera/ARDisplay'
+import { EvaluationPanel } from '@/components/evaluation/EvaluationPanel'
 import { useGestureClassifier } from '@/hooks/useGestureClassifier'
 import { useGestureStore } from '@/stores/gestureStore'
 import { Link } from 'react-router-dom'
@@ -9,6 +10,15 @@ import type { Landmark } from '@/types'
 export default function Translate() {
   const [landmarks, setLandmarks] = useState<Landmark[] | null>(null)
   const gestureCount = useGestureStore(s => s.gestures.length + s.collectiveGestures.length)
+  const ownGestures = useGestureStore(s => s.gestures)
+  const collectiveGestures = useGestureStore(s => s.collectiveGestures)
+
+  // Vocabulário reconhecível (nomes distintos) — usado pelo modo avaliação
+  const vocabulary = useMemo(
+    () => Array.from(new Set([...ownGestures, ...collectiveGestures].map(g => g.name)))
+      .sort((a, b) => a.localeCompare(b)),
+    [ownGestures, collectiveGestures]
+  )
 
   const handleLandmarks = useCallback((lms: Landmark[] | null, _detected: boolean) => {
     setLandmarks(lms)
@@ -45,6 +55,9 @@ export default function Translate() {
           isDetecting={isDetecting}
         />
       </CameraFeed>
+
+      {/* Modo avaliação (Item 4): registra cada tentativa — gesto pedido × reconhecido */}
+      <EvaluationPanel history={history} confidence={confidence} vocabulary={vocabulary} />
 
       {/* Modo frase */}
       {currentPhrase && (
